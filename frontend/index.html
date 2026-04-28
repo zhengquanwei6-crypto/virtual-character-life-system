@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Virtual Character Chat</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <nav class="top-nav">
+      <a class="nav-link is-active" href="./index.html">&#29992;&#25143;&#32842;&#22825;</a>
+      <a class="nav-link" href="./admin.html">&#31649;&#29702;&#21518;&#21488;</a>
+    </nav>
+
+    <main class="app-shell">
+      <section class="chat-panel" aria-label="Virtual character chat">
+        <header class="character-header">
+          <div class="avatar-wrap">
+            <img id="characterAvatar" class="avatar" alt="Character avatar" />
+            <span id="avatarFallback" class="avatar-fallback">AI</span>
+          </div>
+          <div class="character-meta">
+            <h1 id="characterName">Loading...</h1>
+            <p id="characterDescription">Connecting character</p>
+          </div>
+          <div id="connectionStatus" class="connection-status">Connecting</div>
+        </header>
+
+        <div id="messageList" class="message-list" aria-live="polite"></div>
+
+        <form id="messageForm" class="message-form">
+          <textarea
+            id="messageInput"
+            class="message-input"
+            rows="1"
+            placeholder="&#36755;&#20837;&#28040;&#24687;&#65292;&#20363;&#22914;&#65306;&#32473;&#25105;&#30475;&#30475;&#20320;&#30340;&#26679;&#23376;"
+            autocomplete="off"
+          ></textarea>
+          <button id="sendButton" class="send-button" type="submit">&#21457;&#36865;</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="./src/api.js"></script>
+    <script src="./src/app.js"></script>
+  </body>
+</html>
