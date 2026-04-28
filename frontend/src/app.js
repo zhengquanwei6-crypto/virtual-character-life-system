@@ -20,6 +20,9 @@
     form: document.getElementById("messageForm"),
     input: document.getElementById("messageInput"),
     sendButton: document.getElementById("sendButton"),
+    stageAvatar: document.getElementById("stageAvatar"),
+    stageName: document.getElementById("stageName"),
+    stageDescription: document.getElementById("stageDescription"),
   };
 
   function setStatus(text, tone = "neutral") {
@@ -67,16 +70,23 @@
     const profile = state.profile || {};
     els.characterName.textContent = profile.name || "Default Character";
     els.characterDescription.textContent = profile.description || "\u7528\u6237\u7aef\u804a\u5929 MVP";
+    if (els.stageName) els.stageName.textContent = profile.name || "Default Character";
+    if (els.stageDescription) els.stageDescription.textContent = profile.description || "\u89d2\u8272\u72b6\u6001\u5df2\u540c\u6b65";
     els.avatarFallback.textContent = (profile.name || "AI").slice(0, 2).toUpperCase();
 
     if (profile.avatarUrl) {
       els.avatar.src = profile.avatarUrl;
       els.avatar.style.display = "block";
       els.avatarFallback.style.display = "none";
+      if (els.stageAvatar) {
+        els.stageAvatar.src = profile.avatarUrl;
+        els.stageAvatar.style.display = "block";
+      }
     } else {
       els.avatar.removeAttribute("src");
       els.avatar.style.display = "none";
       els.avatarFallback.style.display = "grid";
+      if (els.stageAvatar) els.stageAvatar.style.display = "none";
     }
   }
 

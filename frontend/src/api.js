@@ -1,5 +1,6 @@
 (function () {
-  const API_BASE = window.API_BASE || "http://127.0.0.1:8000";
+  const localFrontend = ["127.0.0.1:5173", "localhost:5173"].includes(window.location.host);
+  const API_BASE = window.API_BASE || (localFrontend ? "http://127.0.0.1:8000" : "");
 
   async function request(path, options = {}) {
     const { timeoutMs = 20000, ...fetchOptions } = options;

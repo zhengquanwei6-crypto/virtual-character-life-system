@@ -1,0 +1,10 @@
+.git
+.tools
+.reference
+backend/data
+backend/.env
+backend/*.log
+**/__pycache__
+**/*.pyc
+mobile/android/app/build
+

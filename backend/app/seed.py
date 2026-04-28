@@ -45,16 +45,57 @@ def seed_database(session: Session) -> None:
 
     workflow = WorkflowTemplate(
         name="Default ComfyUI text-to-image workflow",
-        description="Mock workflow template for text-to-image.",
+        description="Default API-format ComfyUI text-to-image workflow.",
         status="active",
         version=1,
         node_mapping_id=mapping.id,
         workflow_json={
-            "3": {"class_type": "KSampler", "inputs": {}},
-            "4": {"class_type": "CheckpointLoaderSimple", "inputs": {}},
-            "5": {"class_type": "EmptyLatentImage", "inputs": {}},
-            "6": {"class_type": "CLIPTextEncode", "inputs": {}},
-            "7": {"class_type": "CLIPTextEncode", "inputs": {}},
+            "3": {
+                "inputs": {
+                    "seed": 639651158536171,
+                    "steps": 20,
+                    "cfg": 8,
+                    "sampler_name": "euler",
+                    "scheduler": "normal",
+                    "denoise": 1,
+                    "model": ["4", 0],
+                    "positive": ["6", 0],
+                    "negative": ["7", 0],
+                    "latent_image": ["5", 0],
+                },
+                "class_type": "KSampler",
+                "_meta": {"title": "KSampler"},
+            },
+            "4": {
+                "inputs": {"ckpt_name": "Qwen-Rapid-AIO-NSFW-v11.safetensors"},
+                "class_type": "CheckpointLoaderSimple",
+                "_meta": {"title": "CheckpointLoaderSimple"},
+            },
+            "5": {
+                "inputs": {"width": 512, "height": 512, "batch_size": 1},
+                "class_type": "EmptyLatentImage",
+                "_meta": {"title": "EmptyLatentImage"},
+            },
+            "6": {
+                "inputs": {"text": "portrait, best quality", "clip": ["4", 1]},
+                "class_type": "CLIPTextEncode",
+                "_meta": {"title": "PositivePrompt"},
+            },
+            "7": {
+                "inputs": {"text": "text, watermark", "clip": ["4", 1]},
+                "class_type": "CLIPTextEncode",
+                "_meta": {"title": "NegativePrompt"},
+            },
+            "8": {
+                "inputs": {"samples": ["3", 0], "vae": ["4", 2]},
+                "class_type": "VAEDecode",
+                "_meta": {"title": "VAEDecode"},
+            },
+            "9": {
+                "inputs": {"filename_prefix": "ComfyUI", "images": ["8", 0]},
+                "class_type": "SaveImage",
+                "_meta": {"title": "SaveImage"},
+            },
         },
     )
     session.add(workflow)
@@ -63,14 +104,14 @@ def seed_database(session: Session) -> None:
 
     preset = GenerationPreset(
         name="Default portrait preset",
-        description="Default mock generation preset.",
+        description="Default generation preset for the text-to-image workflow.",
         status="active",
         version=1,
         workflow_template_id=workflow.id,
-        checkpoint="mock_model.safetensors",
+        checkpoint="Qwen-Rapid-AIO-NSFW-v11.safetensors",
         loras=[],
-        width=768,
-        height=1024,
+        width=512,
+        height=512,
         steps=24,
         cfg=7.0,
         sampler="euler",

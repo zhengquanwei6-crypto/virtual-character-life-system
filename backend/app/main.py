@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.config import BASE_DIR
+from app.config import BASE_DIR, get_settings
 from app.database import create_db_and_tables, engine
 from app.responses import ApiError, api_error_handler, api_error_response
 from app.responses import api_success
@@ -20,8 +20,8 @@ class UTF8JSONResponse(JSONResponse):
 
 
 app = FastAPI(
-    title="Virtual Character Life System Mock Backend",
-    version="0.1.0",
+    title="Virtual Character Life System Backend",
+    version=get_settings().app_version,
     description="FastAPI + SQLite + SQLModel backend with mock and external LLM/ComfyUI modes.",
     default_response_class=UTF8JSONResponse,
 )
@@ -66,3 +66,15 @@ app.mount("/generated", StaticFiles(directory=str(BASE_DIR / "data" / "generated
 @app.get("/health")
 async def health_check():
     return api_success({"status": "ok"})
+
+
+@app.get("/api/system/version")
+async def version_check():
+    settings = get_settings()
+    return api_success(
+        {
+            "version": settings.app_version,
+            "llmEnabled": settings.llm_enabled,
+            "comfyuiEnabled": settings.comfyui_enabled,
+        }
+    )

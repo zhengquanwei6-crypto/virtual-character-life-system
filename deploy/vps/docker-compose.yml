@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: /opt/virtual-character-life-system/current
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - /opt/virtual-character-life-system/shared/backend.env
+    volumes:
+      - /opt/virtual-character-life-system/shared/data:/app/data
+    expose:
+      - "8000"
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    volumes:
+      - /opt/virtual-character-life-system/current/frontend:/usr/share/nginx/html:ro
+      - /opt/virtual-character-life-system/current/deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+

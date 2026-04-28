@@ -29,4 +29,11 @@ Thumbs.db
 .idea/
 .vscode/
 .tools/
+.reference/
 gh-auth*.log
+gh-refresh*.log
+
+# Mobile build outputs
+mobile/android/.gradle/
+mobile/android/app/build/
+*.apk

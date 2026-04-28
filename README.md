@@ -73,3 +73,50 @@ COMFYUI_BASE_URL=...
 
 注意：`backend/.env`、SQLite 数据库、生成图片和日志不会提交到 Git。
 
+## VPS 部署
+
+仓库内置 Docker Compose 部署配置：
+
+```bash
+cd /opt/virtual-character-life-system/current
+docker compose -f deploy/vps/docker-compose.yml up -d --build
+```
+
+目录约定：
+
+```txt
+/opt/virtual-character-life-system/current   当前版本代码
+/opt/virtual-character-life-system/releases  历史版本
+/opt/virtual-character-life-system/shared    环境变量与持久化数据
+/opt/virtual-character-life-system/backups   每个版本对应的数据备份
+```
+
+备份：
+
+```bash
+bash deploy/vps/backup.sh 0.2.0
+```
+
+## 版本管理
+
+版本号保存在 [VERSION](./VERSION)。发布新版本前先备份数据：
+
+```powershell
+.\scripts\backup.ps1 -Version 0.2.0
+```
+
+创建版本提交和 tag：
+
+```powershell
+.\scripts\release.ps1 -Version 0.2.0
+```
+
+## APK
+
+Android WebView 工程在 [mobile/android](./mobile/android)。推送 tag `v*` 或手动触发 GitHub Actions `Build Android APK` 会生成 APK artifact。
+
+默认 APK 加载：
+
+```txt
+http://96.30.199.85/index.html
+```

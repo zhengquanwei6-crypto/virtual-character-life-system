@@ -1,0 +1,25 @@
+plugins {
+    id "com.android.application"
+}
+
+def appVersionName = project.findProperty("APP_VERSION_NAME") ?: "0.2.0"
+def appVersionCode = (project.findProperty("APP_VERSION_CODE") ?: "2").toInteger()
+def webUrl = project.findProperty("WEB_URL") ?: "http://96.30.199.85/index.html"
+
+android {
+    namespace "com.virtualcharacter.life"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.virtualcharacter.life"
+        minSdk 26
+        targetSdk 35
+        versionCode appVersionCode
+        versionName appVersionName
+        buildConfigField "String", "WEB_URL", "\"${webUrl}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}

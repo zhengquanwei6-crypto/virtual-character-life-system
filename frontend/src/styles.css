@@ -1,14 +1,17 @@
 :root {
   color-scheme: light;
-  --bg: #edf1f5;
+  --bg: #e8edf4;
   --panel: #ffffff;
   --text: #1d2733;
   --muted: #667385;
   --line: #d7dee8;
   --assistant: #f3f6fa;
-  --user: #1f6feb;
+  --user: #1559d1;
   --user-text: #ffffff;
   --accent: #168f6a;
+  --cyan: #0891b2;
+  --violet: #6d5dfc;
+  --ink: #0b1020;
   --danger: #b3261e;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -23,7 +26,9 @@ body {
   min-height: 100vh;
   color: var(--text);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0)),
+    radial-gradient(circle at top left, rgba(8, 145, 178, 0.14), transparent 32rem),
+    radial-gradient(circle at bottom right, rgba(109, 93, 252, 0.12), transparent 34rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0)),
     var(--bg);
 }
 
@@ -68,15 +73,141 @@ textarea {
   padding: 24px;
 }
 
+.chat-shell {
+  width: min(1240px, 100%);
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.life-panel {
+  height: min(820px, calc(100vh - 48px));
+  min-height: 560px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 14px;
+  padding: 16px;
+  color: #dce9f7;
+  background:
+    linear-gradient(180deg, rgba(13, 24, 45, 0.95), rgba(7, 12, 25, 0.98)),
+    var(--ink);
+  border: 1px solid rgba(8, 145, 178, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(11, 16, 32, 0.22);
+  overflow: hidden;
+}
+
+.life-visual {
+  position: relative;
+  min-height: 280px;
+  border: 1px solid rgba(125, 211, 252, 0.14);
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(8, 145, 178, 0.18), rgba(109, 93, 252, 0.18)),
+    #101827;
+}
+
+.life-visual::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(125, 211, 252, 0.18) 0.8px, transparent 0.8px);
+  background-size: 18px 18px;
+  opacity: 0.45;
+}
+
+.life-visual img {
+  position: relative;
+  z-index: 1;
+  display: none;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(1.08);
+}
+
+.life-visual-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(125, 211, 252, 0.62);
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.scanline {
+  position: absolute;
+  z-index: 2;
+  inset: -40% 0 auto;
+  height: 32%;
+  background: linear-gradient(180deg, transparent, rgba(34, 211, 238, 0.12), transparent);
+  animation: scanline 7s linear infinite;
+}
+
+@keyframes scanline {
+  from {
+    transform: translateY(-40%);
+  }
+  to {
+    transform: translateY(460%);
+  }
+}
+
+.life-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.life-copy h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 26px;
+  line-height: 1.15;
+}
+
+.life-copy p:last-child {
+  margin: 0;
+  color: #9fb1c7;
+  line-height: 1.55;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-grid div {
+  display: grid;
+  gap: 4px;
+  padding: 11px;
+  border: 1px solid rgba(125, 211, 252, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.metric-grid span {
+  color: #7d90aa;
+  font-size: 12px;
+}
+
+.metric-grid strong {
+  color: #dffafe;
+  font-size: 14px;
+}
+
 .chat-panel {
-  width: min(920px, 100%);
+  width: 100%;
   height: min(820px, calc(100vh - 48px));
   min-height: 560px;
   display: grid;
   grid-template-rows: auto 1fr auto;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 18px 48px rgba(34, 47, 62, 0.14);
   overflow: hidden;
 }
@@ -88,7 +219,9 @@ textarea {
   align-items: center;
   padding: 18px 20px;
   border-bottom: 1px solid var(--line);
-  background: #fbfcfe;
+  background:
+    linear-gradient(90deg, rgba(8, 145, 178, 0.08), rgba(255, 255, 255, 0)),
+    #fbfcfe;
 }
 
 .avatar-wrap {
@@ -112,7 +245,7 @@ textarea {
 .avatar-fallback {
   display: grid;
   place-items: center;
-  background: #203449;
+  background: linear-gradient(135deg, #0f766e, #1d4ed8);
   color: #ffffff;
   font-weight: 700;
 }
@@ -166,7 +299,11 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: #f8fafc;
+  background:
+    linear-gradient(rgba(8, 145, 178, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(8, 145, 178, 0.03) 1px, transparent 1px),
+    #f8fafc;
+  background-size: 28px 28px;
 }
 
 .empty-state {
@@ -198,7 +335,7 @@ textarea {
 
 .message-bubble {
   max-width: min(680px, 78%);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 11px 13px;
   line-height: 1.55;
   box-shadow: 0 1px 2px rgba(35, 45, 55, 0.08);
@@ -212,7 +349,7 @@ textarea {
 
 .is-user .message-bubble {
   color: var(--user-text);
-  background: var(--user);
+  background: linear-gradient(135deg, #1559d1, #0f7ca8);
 }
 
 .is-assistant .message-bubble {
@@ -252,7 +389,7 @@ textarea {
 
 .image-result img {
   display: block;
-  width: min(320px, 100%);
+  width: min(360px, 100%);
   border-radius: 8px;
   border: 1px solid var(--line);
   background: #ffffff;
@@ -638,6 +775,15 @@ textarea {
 @media (max-width: 640px) {
   .app-shell {
     padding: 0;
+  }
+
+  .chat-shell {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .life-panel {
+    display: none;
   }
 
   .chat-panel {

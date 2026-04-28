@@ -1,0 +1,20 @@
+{
+  "name": "虚拟角色生命系统",
+  "short_name": "虚拟角色",
+  "description": "真实 LLM + ComfyUI 的虚拟角色聊天与生图应用",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

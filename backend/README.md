@@ -30,13 +30,13 @@ Edit `.env`:
 
 ```txt
 LLM_ENABLED=true
-LLM_BASE_URL=https://1876c14363b64cf88315a21f7d6fc383--8000.ap-shanghai2.cloudstudio.club/v1
+LLM_BASE_URL=https://your-llm-host.example.com/v1
 LLM_MODEL=
 LLM_API_KEY=
 LLM_TIMEOUT=60
 
 COMFYUI_ENABLED=true
-COMFYUI_BASE_URL=https://1876c14363b64cf88315a21f7d6fc383--8188.ap-shanghai2.cloudstudio.club
+COMFYUI_BASE_URL=https://your-comfyui-host.example.com
 COMFYUI_TIMEOUT=300
 ```
 
