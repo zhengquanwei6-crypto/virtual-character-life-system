@@ -5,7 +5,7 @@
 默认加载：
 
 ```txt
-http://96.30.199.85/index.html
+http://96.30.199.85:8090/index.html
 ```
 
 GitHub Actions 会在每次推送 tag `v*` 时构建 debug APK，并上传为 artifact。
@@ -14,6 +14,5 @@ GitHub Actions 会在每次推送 tag `v*` 时构建 debug APK，并上传为 ar
 
 ```bash
 cd mobile/android
-gradle app:assembleDebug -PWEB_URL=http://96.30.199.85/index.html -PAPP_VERSION_NAME=0.2.0 -PAPP_VERSION_CODE=2
+gradle app:assembleDebug -PWEB_URL=http://96.30.199.85:8090/index.html -PAPP_VERSION_NAME=0.2.1 -PAPP_VERSION_CODE=3
 ```
-

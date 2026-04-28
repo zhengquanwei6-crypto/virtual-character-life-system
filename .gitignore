@@ -37,3 +37,4 @@ gh-refresh*.log
 mobile/android/.gradle/
 mobile/android/app/build/
 *.apk
+artifacts/

@@ -17,8 +17,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
+      - "8090:80"
     volumes:
       - /opt/virtual-character-life-system/current/frontend:/usr/share/nginx/html:ro
       - /opt/virtual-character-life-system/current/deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-

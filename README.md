@@ -118,5 +118,5 @@ Android WebView 工程在 [mobile/android](./mobile/android)。推送 tag `v*` �
 默认 APK 加载：
 
 ```txt
-http://96.30.199.85/index.html
+http://96.30.199.85:8090/index.html
 ```
