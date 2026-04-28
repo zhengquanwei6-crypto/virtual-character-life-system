@@ -10,11 +10,11 @@ on:
       version_name:
         description: "Version name"
         required: true
-        default: "0.3.0"
+        default: "0.3.1"
       version_code:
         description: "Version code"
         required: true
-        default: "4"
+        default: "5"
   push:
     tags:
       - "v*"

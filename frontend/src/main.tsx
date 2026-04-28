@@ -218,7 +218,7 @@ function ChatPage() {
             <div className="empty-state">
               <Sparkles size={28} />
               <strong>开始一次真实图文对话</strong>
-              <span>试试：“给我看看你的样子”或 “please generate a photo”。</span>
+              <span>试试：“给我看看你的样子”。</span>
               {error ? <em>{error}</em> : null}
             </div>
           ) : (

@@ -57,7 +57,7 @@ class Settings:
 
 def get_settings() -> Settings:
     return Settings(
-        app_version=get_env("APP_VERSION", "0.3.0"),
+        app_version=get_env("APP_VERSION", "0.3.1"),
         llm_enabled=get_bool_env("LLM_ENABLED", False),
         llm_base_url=get_env("LLM_BASE_URL", "").rstrip("/"),
         llm_model=get_env("LLM_MODEL", ""),

@@ -14,5 +14,5 @@ GitHub Actions 会在推送 tag `v*` 时构建 debug APK，并上传 artifact。
 
 ```bash
 cd mobile/android
-gradle app:assembleDebug -PWEB_URL=http://96.30.199.85:8090/index.html -PAPP_VERSION_NAME=0.3.0 -PAPP_VERSION_CODE=4
+gradle app:assembleDebug -PWEB_URL=http://96.30.199.85:8090/index.html -PAPP_VERSION_NAME=0.3.1 -PAPP_VERSION_CODE=5
 ```
