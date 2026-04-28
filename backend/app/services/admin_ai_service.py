@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 from typing import Any
@@ -56,7 +56,7 @@ def admin_ai_config_dto(session: Session) -> dict[str, Any]:
             "source": "database",
             "hasApiKey": False,
             "maskedApiKey": None,
-            "notice": "后台 AI 独立于用户聊天模型，用于角色生成、提示词优化和 Workflow 诊断。未启用时会显示 Mock 草稿。",
+            "notice": "后台 AI 独立于用户聊天模型，用于角色生成、提示词优化和 Workflow 诊断。未启用或外链失效时不会生成虚拟草稿。",
         }
     return {
         "enabled": row.enabled,
@@ -69,7 +69,7 @@ def admin_ai_config_dto(session: Session) -> dict[str, Any]:
         "hasApiKey": bool(row.api_key),
         "maskedApiKey": _mask_key(row.api_key),
         "updatedAt": row.updated_at,
-        "notice": "后台 AI 独立于用户聊天模型，用于角色生成、提示词优化和 Workflow 诊断。未启用时会显示 Mock 草稿。",
+        "notice": "后台 AI 独立于用户聊天模型，用于角色生成、提示词优化和 Workflow 诊断。未启用或外链失效时不会生成虚拟草稿。",
     }
 
 
@@ -116,7 +116,14 @@ def _effective_config(session: Session) -> dict[str, Any]:
 def admin_ai_models(session: Session) -> dict[str, Any]:
     config = _effective_config(session)
     if not config["enabled"]:
-        return {"enabled": False, "ok": True, "mode": "mock", "models": [], "message": "后台 AI 未启用，当前使用 Mock 草稿。"}
+        return {
+            "enabled": False,
+            "ok": False,
+            "mode": "disabled",
+            "models": [],
+            "errorCode": "ADMIN_AI_DISABLED",
+            "message": "后台 AI 未启用，无法生成 AI 草稿。请管理员配置可访问的 OpenAI-compatible 外链与 API Key。",
+        }
     if not config["baseUrl"]:
         raise ApiError("ADMIN_AI_UNAVAILABLE", "后台 AI Base URL 为空", 503)
     http = _require_httpx()
@@ -171,9 +178,10 @@ def test_admin_ai(session: Session, message: str) -> dict[str, Any]:
     config = _effective_config(session)
     if not config["enabled"]:
         return {
-            "ok": True,
-            "mode": "mock",
-            "reply": "后台 AI 未启用。上线前可在这里配置独立的 OpenAI-compatible 接口，我会用于角色、提示词和工作流诊断。",
+            "ok": False,
+            "mode": "disabled",
+            "errorCode": "ADMIN_AI_DISABLED",
+            "message": "后台 AI 未启用，无法测试连接。请管理员配置可访问的 OpenAI-compatible 外链与 API Key。",
         }
     content = _call_admin_ai(
         session,
@@ -216,123 +224,6 @@ def _json_instruction() -> str:
     )
 
 
-def _mock_character_draft(seed: str) -> dict[str, Any]:
-    inspiration = seed.strip() or "温柔、可靠、适合长期陪伴的虚拟角色"
-    return {
-        "title": "角色草稿",
-        "summary": "根据灵感生成了一个可直接微调的角色设定。",
-        "draft": {
-            "profile": {
-                "name": "Mira",
-                "description": f"一个由「{inspiration}」启发的虚拟陪伴角色，语气温和、回应清晰。",
-                "personality": "温柔、敏锐、稳定、有一点俏皮感",
-                "scenario": "在日常聊天中陪伴用户，也能根据对话想象画面并触发生图。",
-                "firstMessage": "你好，我在这里。今天想让我陪你聊点什么？",
-                "tags": ["陪伴", "温柔", "可生图"],
-            },
-            "prompt": {
-                "systemPrompt": "你是一个具有稳定人格和清晰边界的虚拟角色。始终保持角色一致性，用自然中文回应。",
-                "roleplayPrompt": "用温柔、具体、不过度夸张的方式回应用户。必要时主动把画面描述交给生图流程。",
-                "conversationStyle": "简洁、细腻、亲近但不过界",
-                "safetyPrompt": "避免危险、违法、露骨或伤害性内容。",
-            },
-            "visual": {
-                "visualPrompt": "soft cinematic portrait, warm eyes, clean outfit, delicate expression, high quality",
-                "visualNegativePrompt": "low quality, blurry, distorted hands, bad anatomy, watermark",
-            },
-        },
-        "reasons": ["常用字段优先，便于管理员快速确认。", "保留了聊天与生图的一致角色方向。"],
-        "risks": ["仍需要结合实际目标用户微调称呼、语气和边界。"],
-        "applicableFields": ["profile", "prompt", "visual"],
-        "mock": True,
-    }
-
-
-def _mock_prompt_optimize(text: str, task_type: str) -> dict[str, Any]:
-    label = "视觉提示词" if task_type == "visual-prompt.optimize" else "角色提示词"
-    optimized = text.strip() or "保持角色一致性，回应自然，避免过度解释系统规则。"
-    return {
-        "title": f"{label}优化草稿",
-        "summary": "已把提示词整理为更明确、可执行、便于维护的版本。",
-        "draft": {
-            "prompt": optimized,
-            "optimizedPrompt": f"{optimized}\n\n要求：保持一致人格；回答具体；遇到画面请求时输出清晰画面描述；避免暴露内部配置。",
-        },
-        "reasons": ["减少模糊表达。", "强调角色一致性和输出边界。"],
-        "risks": ["真实模型风格仍会受底层模型影响，需要测试多轮对话。"],
-        "applicableFields": ["prompt"],
-        "mock": True,
-    }
-
-
-def _mock_generation_preset(input_snapshot: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "title": "生图预设建议",
-        "summary": "为 MVP text-to-image 工作流生成了保守参数建议。",
-        "draft": {
-            "generationPreset": {
-                "width": 768,
-                "height": 1024,
-                "steps": 24,
-                "cfg": 7.0,
-                "sampler": "euler",
-                "scheduler": "normal",
-                "seedMode": "random",
-                "positivePromptPrefix": "masterpiece, best quality",
-                "positivePromptSuffix": "soft light, detailed face",
-                "negativePrompt": "low quality, blurry, bad anatomy, watermark",
-            }
-        },
-        "reasons": ["参数保守，适合上线初期稳定验证。"],
-        "risks": ["checkpoint、LoRA 仍需要从 ComfyUI 资源列表中选择真实可用项。"],
-        "applicableFields": ["generationPreset"],
-        "mock": True,
-        "inputSnapshot": input_snapshot,
-    }
-
-
-def _workflow_payload(task_type: str, input_snapshot: dict[str, Any]) -> dict[str, Any]:
-    from app.services.workflow_analysis_service import (
-        diagnose_workflow,
-        draft_node_mapping,
-        parse_workflow,
-    )
-
-    workflow_json = input_snapshot.get("workflowJson") or {}
-    object_info = input_snapshot.get("objectInfo") or {}
-    resources = input_snapshot.get("resources") or {}
-    parsed = parse_workflow(workflow_json, object_info=object_info, resources=resources)
-    diagnosis = diagnose_workflow(parsed)
-    draft = draft_node_mapping(parsed)
-    return {
-        "title": "Workflow 专业分析",
-        "summary": diagnosis.get("summary", "已完成确定性解析、类型识别和映射草稿。"),
-        "draft": {
-            "workflowAnalysis": parsed,
-            "diagnosis": diagnosis,
-            "nodeMapping": draft,
-        },
-        "reasons": ["优先使用确定性解析，AI 只负责解释和建议。", "连接输入已标记，不会被当成普通字符串覆盖。"],
-        "risks": diagnosis.get("warnings", []),
-        "applicableFields": ["nodeMapping"] if task_type == "workflow.mapping-draft" else ["workflowAnalysis"],
-        "mock": True,
-    }
-
-
-def _build_mock_output(task: AITask) -> dict[str, Any]:
-    snapshot = task.input_snapshot or {}
-    text = str(snapshot.get("seedText") or snapshot.get("text") or snapshot.get("prompt") or "")
-    if task.type in {"character.generate", "character.optimize"}:
-        return _mock_character_draft(text)
-    if task.type in {"prompt.optimize", "visual-prompt.optimize"}:
-        return _mock_prompt_optimize(text, task.type)
-    if task.type == "generation-preset.suggest":
-        return _mock_generation_preset(snapshot)
-    if task.type in {"workflow.analyze", "workflow.mapping-draft", "workflow.diagnose"}:
-        return _workflow_payload(task.type, snapshot)
-    return {"title": "AI 草稿", "summary": "任务已完成。", "draft": {}, "reasons": [], "risks": [], "applicableFields": [], "mock": True}
-
-
 def _build_live_messages(task: AITask) -> list[dict[str, str]]:
     return [
         {
@@ -370,23 +261,23 @@ def run_ai_task(task_id: str) -> None:
         session.refresh(task)
         try:
             config = _effective_config(session)
-            if config["enabled"]:
-                content = _call_admin_ai(session, _build_live_messages(task))
-                data = parse_llm_output(content)
-                if "draft" not in data:
-                    fallback = _build_mock_output(task)
-                    fallback["aiError"] = {"code": "ADMIN_AI_INVALID_OUTPUT", "raw": content}
-                    data = fallback
-            else:
-                data = _build_mock_output(task)
+            if not config["enabled"]:
+                raise ApiError(
+                    "ADMIN_AI_DISABLED",
+                    "后台 AI 未启用或外链不可访问，请管理员检查后台 AI 外链与 API Key。",
+                    503,
+                )
+            content = _call_admin_ai(session, _build_live_messages(task))
+            data = parse_llm_output(content)
+            if "draft" not in data:
+                raise ApiError("ADMIN_AI_INVALID_OUTPUT", "后台 AI 返回格式无效，没有生成可应用草稿。", 502, {"raw": content})
             task.output_draft = data
             task.status = "succeeded"
             task.error_code = None
             task.error_message = None
         except ApiError as exc:
-            task.output_draft = _build_mock_output(task)
-            task.output_draft["aiError"] = {"code": exc.code, "message": exc.message, "details": exc.details}
-            task.status = "succeeded"
+            task.output_draft = None
+            task.status = "failed"
             task.error_code = exc.code
             task.error_message = exc.message
         except Exception as exc:  # pragma: no cover - defensive task boundary

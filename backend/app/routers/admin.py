@@ -228,34 +228,7 @@ def update_character_api(character_id: str, payload: CharacterUpsert, session: S
 
 @router.post("/characters/generate-card")
 def generate_card_api(payload: GenerateCardRequest, session: Session = Depends(get_session)):
-    try:
-        return api_success(generate_character_card_with_llm(session, payload.seedText, payload.style))
-    except ApiError as exc:
-        if exc.code not in {"LLM_DISABLED", "LLM_INVALID_OUTPUT", "LLM_UNAVAILABLE", "LLM_TIMEOUT"}:
-            raise
-    style = payload.style or "warm virtual companion"
-    return api_success(
-        {
-            "profile": {
-                "name": "Mock Character",
-                "description": f"A {style} inspired by: {payload.seedText}",
-                "personality": "curious, friendly, emotionally vivid",
-                "scenario": "A virtual character chats with the user and imagines scenes.",
-                "firstMessage": "Hello, I am ready to chat with you.",
-                "tags": ["mock", "generated"],
-            },
-            "prompt": {
-                "systemPrompt": "You are a roleplaying virtual character.",
-                "roleplayPrompt": "Stay in character and answer naturally.",
-                "conversationStyle": "warm, concise, imaginative",
-                "safetyPrompt": "Avoid unsafe or harmful content.",
-            },
-            "visual": {
-                "visualPrompt": "beautiful virtual character, expressive eyes, detailed portrait",
-                "visualNegativePrompt": "low quality, blurry, distorted",
-            },
-        }
-    )
+    return api_success(generate_character_card_with_llm(session, payload.seedText, payload.style))
 
 
 @router.post("/characters/{character_id}/test-chat")

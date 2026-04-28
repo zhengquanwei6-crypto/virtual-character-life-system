@@ -214,10 +214,11 @@ def refresh_comfy_resources(session: Session) -> dict[str, Any]:
         cached = list_cached_resources(session)
         return {
             "enabled": False,
-            "ok": True,
-            "mode": "mock",
+            "ok": False,
+            "mode": "disabled",
             "baseUrl": settings.comfyui_base_url,
-            "message": "ComfyUI 未启用，显示缓存资源；生图会使用 Mock 图片。",
+            "errorCode": "COMFYUI_DISABLED",
+            "message": "ComfyUI 未启用或外链不可访问。系统不会使用占位图，请管理员检查 ComfyUI 外链。",
             **cached,
         }
     try:
@@ -251,7 +252,15 @@ def comfyui_diagnostics(session: Session) -> dict[str, Any]:
         "nextStep": None,
     }
     if not settings.comfyui_enabled:
-        diagnostics.update({"mode": "mock", "nextStep": "上线真实生图前，请启用 ComfyUI 并刷新资源。"})
+        diagnostics.update(
+            {
+                "ok": False,
+                "mode": "disabled",
+                "errorCode": "COMFYUI_DISABLED",
+                "errorMessage": "ComfyUI 未启用或外链不可访问。系统不会使用占位图。",
+                "nextStep": "请管理员启用 ComfyUI，并确认 VPS 可以访问 COMFYUI_BASE_URL。",
+            }
+        )
         return diagnostics
     try:
         system = _client_get("/system_stats")

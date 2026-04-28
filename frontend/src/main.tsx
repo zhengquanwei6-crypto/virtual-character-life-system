@@ -663,13 +663,13 @@ function OverviewPanel({ notify, setTab }: { notify: (text: string, tone?: Toast
       <div className="summary-grid">
         <SummaryCard
           title="LLM 连接"
-          value={llm?.enabled ? "真实接口" : "Mock 模式"}
+          value={llm?.enabled ? "真实接口" : "未启用"}
           ok={Boolean(llm?.ok)}
           detail={llm?.baseUrl || "未配置 Base URL"}
         />
         <SummaryCard
           title="ComfyUI"
-          value={comfy?.enabled ? "真实接口" : "Mock 模式"}
+          value={comfy?.enabled ? "真实接口" : "未启用"}
           ok={Boolean(comfy?.ok)}
           detail={comfy?.baseUrl || "未配置 Base URL"}
         />
@@ -821,9 +821,9 @@ function AdminAIPanel({ notify }: { notify: (text: string, tone?: Toast["tone"])
   }
 
   return (
-    <Panel title="AI 助手" kicker="Admin AI" action={<StatusBadge ok={config.enabled} text={config.enabled ? "真实后台 AI" : "Mock 草稿"} />}>
+    <Panel title="AI 助手" kicker="Admin AI" action={<StatusBadge ok={config.enabled} text={config.enabled ? "真实后台 AI" : "未启用"} />}>
       <Alert>
-        后台 AI 独立于用户聊天模型，主要用于角色库、提示词优化、生图预设建议和 Workflow 诊断。未启用时会明确显示 Mock 草稿，不会伪装成真实模型。
+        后台 AI 独立于用户聊天模型，主要用于角色库、提示词优化、生图预设建议和 Workflow 诊断。未启用或外链失效时不会生成虚拟草稿，请管理员检查外链与 API Key。
       </Alert>
       <div className="form-grid two">
         <label className="toggle-line">
@@ -923,7 +923,7 @@ function ComfyResourcePanel({ notify }: { notify: (text: string, tone?: Toast["t
       const data = await AdminApi.refreshComfyResources();
       setDiagnostics(data);
       setResult(JSON.stringify(data, null, 2));
-      notify(data.ok ? "ComfyUI 资源已刷新。" : "刷新失败，已显示缓存资源。", data.ok ? "success" : "error");
+      notify(data.ok ? "ComfyUI 资源已刷新。" : "刷新失败，请检查 ComfyUI 外链。", data.ok ? "success" : "error");
     } catch (err) {
       const text = errorText(err);
       setResult(text);
@@ -1500,7 +1500,7 @@ function ModelPanel({ notify }: { notify: (text: string, tone?: Toast["tone"]) =
   }
 
   return (
-    <Panel title="模型连接" kicker="OpenAI-compatible" action={<StatusBadge ok={config.enabled} text={config.enabled ? "真实 LLM" : "Mock 模式"} />}>
+    <Panel title="模型连接" kicker="OpenAI-compatible" action={<StatusBadge ok={config.enabled} text={config.enabled ? "真实 LLM" : "未启用"} />}>
       <Alert>
         后台 LLM 主要用于角色定义、角色卡生成、工作流分析和聊天决策。生产环境请使用自定义 OpenAI-compatible 接口；ChatGPT Plus/Codex
         额度适合开发工作流，不作为后端生产 API 用量来源。
@@ -1875,6 +1875,7 @@ function errorText(err: unknown) {
 
 function friendlyImageError(task: ImageTask) {
   if (task.errorCode === "IMAGE_TASK_TIMEOUT") return "图片生成超时，请稍后重试。";
+  if (task.errorCode === "COMFYUI_DISABLED") return "ComfyUI 未启用或外链不可访问，请管理员检查 ComfyUI 外链配置。";
   if (task.errorCode === "COMFYUI_TIMEOUT") return "ComfyUI 响应超时。";
   if (task.errorCode === "COMFYUI_UNAVAILABLE") return "ComfyUI 暂时不可用。";
   if (task.errorCode === "WORKFLOW_INJECTION_FAILED") return "Workflow 参数注入失败，请检查 NodeMapping。";

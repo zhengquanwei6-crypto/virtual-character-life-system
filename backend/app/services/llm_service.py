@@ -12,7 +12,6 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.models import CharacterPrompt, ChatMessage
 from app.responses import ApiError
-from app.services.chat_rules import mock_llm_decision
 from app.services.llm_config_service import effective_llm_config
 
 
@@ -39,11 +38,13 @@ def llm_health(session: Session | None = None) -> dict[str, Any]:
     if not config["enabled"]:
         return {
             "enabled": False,
-            "ok": True,
+            "ok": False,
             "baseUrl": config["baseUrl"],
             "model": config["model"],
             "models": [],
             "source": config["source"],
+            "errorCode": "LLM_DISABLED",
+            "message": "LLM 未启用或外链不可访问。系统不会使用假回复，请管理员检查外链与 API Key。",
         }
     if not config["baseUrl"]:
         raise ApiError("LLM_UNAVAILABLE", "LLM base URL is empty", 503)
@@ -198,7 +199,7 @@ def generate_chat_decision(
 ) -> dict[str, Any]:
     config = effective_llm_config(session)
     if not config["enabled"]:
-        return mock_llm_decision(user_content)
+        raise ApiError("LLM_DISABLED", "LLM 未启用或外链不可访问，请管理员检查 LLM 外链与 API Key。", 503)
 
     content = call_chat_completion(
         session,
@@ -235,7 +236,7 @@ def generate_single_turn_decision(
 ) -> dict[str, Any]:
     config = effective_llm_config(session)
     if not config["enabled"]:
-        return mock_llm_decision(user_content)
+        raise ApiError("LLM_DISABLED", "LLM 未启用或外链不可访问，请管理员检查 LLM 外链与 API Key。", 503)
 
     content = call_chat_completion(session, build_llm_messages(character_prompt, [], user_content))
     if not content:

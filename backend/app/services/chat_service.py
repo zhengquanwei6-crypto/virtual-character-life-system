@@ -85,7 +85,18 @@ def send_message(session: Session, session_id: str, content: str) -> dict:
     session.commit()
     session.refresh(user_message)
 
-    decision = generate_chat_decision(session, session_id, prompt, content)
+    try:
+        decision = generate_chat_decision(session, session_id, prompt, content)
+    except ApiError as exc:
+        if exc.code not in {"LLM_DISABLED", "LLM_UNAVAILABLE", "LLM_TIMEOUT"}:
+            raise
+        decision = {
+            "replyText": "当前 AI 服务不可用，请管理员检查 LLM 外链或 API Key。",
+            "shouldGenerateImage": False,
+            "imagePrompt": None,
+            "errorCode": exc.code,
+            "errorMessage": exc.message,
+        }
     wants_image = bool(decision.get("shouldGenerateImage"))
     image_prompt = decision.get("imagePrompt") if wants_image else None
     reply_text = decision.get("replyText") or ""
@@ -95,6 +106,8 @@ def send_message(session: Session, session_id: str, content: str) -> dict:
     }
     if decision.get("errorCode"):
         llm_decision["errorCode"] = decision["errorCode"]
+    if decision.get("errorMessage"):
+        llm_decision["errorMessage"] = decision["errorMessage"]
     assistant_message = ChatMessage(
         session_id=session_id,
         role="assistant",

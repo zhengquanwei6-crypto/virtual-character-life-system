@@ -6,17 +6,7 @@ from typing import Any
 
 from sqlmodel import Session
 
-from app.models import (
-    Character,
-    CharacterProfile,
-    CharacterVisual,
-    GeneratedAsset,
-    GenerationPreset,
-    ImageTask,
-    NodeMapping,
-    WorkflowTemplate,
-    utc_now,
-)
+from app.models import Character, CharacterProfile, CharacterVisual, GeneratedAsset, GenerationPreset, ImageTask, NodeMapping, WorkflowTemplate, utc_now
 from app.responses import ApiError
 from app.config import get_settings
 from app.services.comfyui_service import build_comfy_prompt, poll_history, submit_prompt
@@ -166,6 +156,11 @@ def create_image_task(
         final_positive_prompt,
         final_negative_prompt,
     )
+    settings = get_settings()
+    task_status = "queued" if settings.comfyui_enabled else "failed"
+    task_error_code = None if settings.comfyui_enabled else "COMFYUI_DISABLED"
+    task_error_message = None if settings.comfyui_enabled else "ComfyUI 未启用或外链不可访问，请管理员检查 ComfyUI 外链配置。"
+    now = utc_now() if not settings.comfyui_enabled else None
     task = ImageTask(
         session_id=session_id,
         message_id=message_id,
@@ -173,10 +168,13 @@ def create_image_task(
         generation_preset_id=preset.id,
         workflow_template_id=workflow.id,
         node_mapping_id=mapping.id,
-        status="queued",
+        status=task_status,
         prompt=final_positive_prompt,
         negative_prompt=final_negative_prompt,
         parameter_snapshot=snapshot,
+        error_code=task_error_code,
+        error_message=task_error_message,
+        completed_at=now,
     )
     session.add(task)
     session.commit()
@@ -195,7 +193,12 @@ def get_image_task(session: Session, task_id: str) -> ImageTask:
         except ApiError as exc:
             fail_task(session, task, exc.code, exc.message)
     elif task.status == "queued":
-        mock_succeed_image_task(session, task)
+        fail_task(
+            session,
+            task,
+            "COMFYUI_DISABLED",
+            "ComfyUI 未启用或外链不可访问，请管理员检查 ComfyUI 外链配置。",
+        )
     return task
 
 
@@ -205,35 +208,6 @@ def image_task_detail(session: Session, task: ImageTask) -> dict[str, Any]:
         **task.model_dump(),
         "generatedAsset": asset,
     }
-
-
-def mock_succeed_image_task(session: Session, task: ImageTask) -> ImageTask:
-    if task.generated_asset_id:
-        return task
-    preset = session.get(GenerationPreset, task.generation_preset_id)
-    width = preset.width if preset else 768
-    height = preset.height if preset else 1024
-    asset = GeneratedAsset(
-        image_task_id=task.id,
-        file_path=f"/mock/generated/{task.id}.png",
-        public_url=f"https://placehold.co/{width}x{height}.png?text=Mock+Image",
-        width=width,
-        height=height,
-        file_size=123456,
-        format="png",
-    )
-    session.add(asset)
-    session.commit()
-    session.refresh(asset)
-
-    task.status = "succeeded"
-    task.generated_asset_id = asset.id
-    task.completed_at = utc_now()
-    task.updated_at = utc_now()
-    session.add(task)
-    session.commit()
-    session.refresh(task)
-    return task
 
 
 def progress_comfy_image_task(session: Session, task: ImageTask) -> ImageTask:

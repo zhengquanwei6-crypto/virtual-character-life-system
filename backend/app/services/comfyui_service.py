@@ -55,9 +55,11 @@ def comfyui_health() -> dict[str, Any]:
     if not settings.comfyui_enabled:
         return {
             "enabled": False,
-            "ok": True,
+            "ok": False,
             "baseUrl": settings.comfyui_base_url,
             "system": None,
+            "errorCode": "COMFYUI_DISABLED",
+            "message": "ComfyUI 未启用或外链不可访问。系统不会使用占位图，请管理员检查外链配置。",
         }
     http = require_httpx()
     health_timeout = min(settings.comfyui_timeout, 8)
