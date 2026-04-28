@@ -11,11 +11,14 @@ from app.schemas import (
     CharacterUpsert,
     GenerateCardRequest,
     GenerationPresetUpsert,
+    LLMConfigTestRequest,
+    LLMConfigUpdate,
     NodeMappingUpsert,
     NodeMappingValidateRequest,
     TestChatRequest,
     TestGenerationPresetRequest,
     TestImageRequest,
+    WorkflowAnalyzeRequest,
     WorkflowTemplateUpsert,
 )
 from app.services.admin_service import (
@@ -38,21 +41,51 @@ from app.services.character_service import (
     update_character,
 )
 from app.services.comfyui_service import comfyui_health
-from app.services.llm_service import generate_single_turn_decision, llm_health
+from app.services.llm_config_service import llm_config_dto, save_llm_config
+from app.services.llm_service import (
+    generate_character_card_with_llm,
+    generate_single_turn_decision,
+    llm_health,
+)
 from app.services.image_task_service import create_image_task
+from app.services.workflow_analysis_service import analyze_workflow
 
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 @router.get("/system/llm-health")
-def llm_health_api():
-    return api_success(llm_health())
+def llm_health_api(session: Session = Depends(get_session)):
+    return api_success(llm_health(session))
 
 
 @router.get("/system/comfyui-health")
 def comfyui_health_api():
     return api_success(comfyui_health())
+
+
+@router.get("/llm-config")
+def get_llm_config_api(session: Session = Depends(get_session)):
+    return api_success(llm_config_dto(session))
+
+
+@router.put("/llm-config")
+def update_llm_config_api(payload: LLMConfigUpdate, session: Session = Depends(get_session)):
+    return api_success(save_llm_config(session, payload))
+
+
+@router.get("/llm-config/models")
+def list_llm_models_api(session: Session = Depends(get_session)):
+    return api_success(llm_health(session))
+
+
+@router.post("/llm-config/test")
+def test_llm_config_api(payload: LLMConfigTestRequest, session: Session = Depends(get_session)):
+    class Prompt:
+        system_prompt = "你是虚拟角色生命系统后台的配置助手。"
+        roleplay_prompt = "请用简洁中文回答，并说明模型连接是否正常。"
+
+    return api_success(generate_single_turn_decision(Prompt(), payload.message, session))
 
 
 @router.get("/characters")
@@ -72,7 +105,12 @@ def update_character_api(character_id: str, payload: CharacterUpsert, session: S
 
 
 @router.post("/characters/generate-card")
-def generate_card_api(payload: GenerateCardRequest):
+def generate_card_api(payload: GenerateCardRequest, session: Session = Depends(get_session)):
+    try:
+        return api_success(generate_character_card_with_llm(session, payload.seedText, payload.style))
+    except ApiError as exc:
+        if exc.code not in {"LLM_DISABLED", "LLM_INVALID_OUTPUT", "LLM_UNAVAILABLE", "LLM_TIMEOUT"}:
+            raise
     style = payload.style or "warm virtual companion"
     return api_success(
         {
@@ -102,7 +140,7 @@ def generate_card_api(payload: GenerateCardRequest):
 def test_chat_api(character_id: str, payload: TestChatRequest, session: Session = Depends(get_session)):
     character = get_character(session, character_id)
     bundle = character_bundle(session, character)
-    return api_success(generate_single_turn_decision(bundle["prompt"], payload.message))
+    return api_success(generate_single_turn_decision(bundle["prompt"], payload.message, session))
 
 
 @router.post("/characters/{character_id}/test-image")
@@ -174,6 +212,11 @@ def activate_generation_preset_api(preset_id: str, session: Session = Depends(ge
 @router.get("/workflow-templates")
 def list_workflow_templates_api(session: Session = Depends(get_session)):
     return api_success(session.exec(select(WorkflowTemplate).order_by(WorkflowTemplate.created_at)).all())
+
+
+@router.post("/workflow-templates/analyze")
+def analyze_workflow_template_api(payload: WorkflowAnalyzeRequest):
+    return api_success(analyze_workflow(payload.workflowJson))
 
 
 @router.post("/workflow-templates")

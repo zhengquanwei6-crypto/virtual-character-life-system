@@ -150,3 +150,12 @@ class GeneratedAsset(SQLModel, table=True):
     file_size: int
     format: str
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class LLMProviderConfig(TimestampMixin, table=True):
+    id: str = Field(default="default", primary_key=True)
+    enabled: bool = Field(default=False)
+    base_url: str = ""
+    model: Optional[str] = None
+    api_key: Optional[str] = None
+    timeout: int = Field(default=60)

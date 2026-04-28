@@ -12,12 +12,13 @@ services:
       - "8000"
 
   web:
-    image: nginx:1.27-alpine
+    build:
+      context: /opt/virtual-character-life-system/current
+      dockerfile: frontend/Dockerfile
     restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "8090:80"
     volumes:
-      - /opt/virtual-character-life-system/current/frontend:/usr/share/nginx/html:ro
       - /opt/virtual-character-life-system/current/deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro

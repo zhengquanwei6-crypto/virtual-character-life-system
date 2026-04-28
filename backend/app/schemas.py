@@ -96,3 +96,19 @@ class NodeMappingUpsert(BaseModel):
 class NodeMappingValidateRequest(BaseModel):
     workflowTemplateId: Optional[str] = None
     workflowJson: Optional[dict[str, Any]] = None
+
+
+class LLMConfigUpdate(BaseModel):
+    enabled: bool = False
+    baseUrl: str = ""
+    model: Optional[str] = None
+    apiKey: Optional[str] = None
+    timeout: int = 60
+
+
+class LLMConfigTestRequest(BaseModel):
+    message: str = "你好"
+
+
+class WorkflowAnalyzeRequest(BaseModel):
+    workflowJson: dict[str, Any]

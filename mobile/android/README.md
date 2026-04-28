@@ -1,6 +1,6 @@
 # Android APK
 
-这是一个最小 Android WebView 壳，用来把已部署的 Web 应用打包为 APK。
+这是一个 Android WebView 壳，用同一套 React Web UI 提供移动端体验。
 
 默认加载：
 
@@ -8,11 +8,11 @@
 http://96.30.199.85:8090/index.html
 ```
 
-GitHub Actions 会在每次推送 tag `v*` 时构建 debug APK，并上传为 artifact。
+GitHub Actions 会在推送 tag `v*` 时构建 debug APK，并上传 artifact。
 
 本地构建需要 JDK、Android SDK 和 Gradle：
 
 ```bash
 cd mobile/android
-gradle app:assembleDebug -PWEB_URL=http://96.30.199.85:8090/index.html -PAPP_VERSION_NAME=0.2.1 -PAPP_VERSION_CODE=3
+gradle app:assembleDebug -PWEB_URL=http://96.30.199.85:8090/index.html -PAPP_VERSION_NAME=0.3.0 -PAPP_VERSION_CODE=4
 ```

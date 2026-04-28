@@ -1,34 +1,27 @@
-# Virtual Character Chat Frontend
+# Frontend
 
-Minimal user-side chat MVP for the FastAPI mock backend.
+Vite + React + TypeScript frontend for the chat app and admin console.
 
-## Start
-
-Keep the backend running first:
+## Development
 
 ```bash
-cd D:\llmai\backend
-uvicorn app.main:app --reload
-```
-
-Then serve this static frontend:
-
-```bash
-cd D:\llmai\frontend
-python -m http.server 5173
+npm install
+npm run dev
 ```
 
 Open:
-
-```txt
-http://127.0.0.1:5173
-```
-
-Pages:
 
 ```txt
 http://127.0.0.1:5173/index.html
 http://127.0.0.1:5173/admin.html
 ```
 
-This MVP implements the user chat page and a minimal mock admin console.
+The dev server proxies `/api`, `/health`, and `/generated` to `http://127.0.0.1:8000`.
+
+## Build
+
+```bash
+npm run build
+```
+
+Production output is written to `frontend/dist`.

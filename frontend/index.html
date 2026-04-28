@@ -2,73 +2,15 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0b1020" />
-    <meta name="description" content="虚拟角色生命系统聊天端" />
-    <title>虚拟角色聊天</title>
-    <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="&#34394;&#25311;&#35282;&#33394;&#29983;&#21629;&#31995;&#32479;&#32842;&#22825;&#31471;&#19982;&#31649;&#29702;&#21518;&#21488;" />
+    <title>&#34394;&#25311;&#35282;&#33394;&#29983;&#21629;&#31995;&#32479;</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
   </head>
   <body>
-    <nav class="top-nav">
-      <a class="nav-link is-active" href="./index.html">&#29992;&#25143;&#32842;&#22825;</a>
-      <a class="nav-link" href="./admin.html">&#31649;&#29702;&#21518;&#21488;</a>
-    </nav>
-
-    <main class="app-shell chat-shell">
-      <aside class="life-panel" aria-label="角色状态">
-        <div class="life-visual">
-          <img id="stageAvatar" alt="角色形象" />
-          <div class="life-visual-fallback">VC</div>
-          <div class="scanline"></div>
-        </div>
-        <div class="life-copy">
-          <p class="section-kicker">生命核心</p>
-          <h2 id="stageName">连接中</h2>
-          <p id="stageDescription">正在同步角色状态与视觉记忆。</p>
-        </div>
-        <div class="metric-grid">
-          <div><span>LLM</span><strong>在线</strong></div>
-          <div><span>ComfyUI</span><strong>待命</strong></div>
-          <div><span>图像</span><strong>持久化</strong></div>
-          <div><span>版本</span><strong>0.2.0</strong></div>
-        </div>
-      </aside>
-      <section class="chat-panel" aria-label="Virtual character chat">
-        <header class="character-header">
-          <div class="avatar-wrap">
-            <img id="characterAvatar" class="avatar" alt="Character avatar" />
-            <span id="avatarFallback" class="avatar-fallback">AI</span>
-          </div>
-          <div class="character-meta">
-            <h1 id="characterName">Loading...</h1>
-            <p id="characterDescription">Connecting character</p>
-          </div>
-          <div id="connectionStatus" class="connection-status">Connecting</div>
-        </header>
-
-        <div id="messageList" class="message-list" aria-live="polite"></div>
-
-        <form id="messageForm" class="message-form">
-          <textarea
-            id="messageInput"
-            class="message-input"
-            rows="1"
-            placeholder="&#36755;&#20837;&#28040;&#24687;&#65292;&#20363;&#22914;&#65306;&#32473;&#25105;&#30475;&#30475;&#20320;&#30340;&#26679;&#23376;"
-            autocomplete="off"
-          ></textarea>
-          <button id="sendButton" class="send-button" type="submit">&#21457;&#36865;</button>
-        </form>
-      </section>
-    </main>
-
-    <script src="./src/api.js"></script>
-    <script src="./src/app.js"></script>
-    <script>
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
-      }
-    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
