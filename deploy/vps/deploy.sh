@@ -8,7 +8,7 @@ VERSION="${VERSION:-main}"
 mkdir -p "$APP_DIR/releases" "$APP_DIR/shared/data" "$APP_DIR/backups"
 
 if [ -d "$APP_DIR/current/.git" ]; then
-  "$APP_DIR/current/deploy/vps/backup.sh" "$VERSION" || true
+  bash "$APP_DIR/current/deploy/vps/backup.sh" "$VERSION" || true
 fi
 
 rm -rf "$APP_DIR/releases/$VERSION"
