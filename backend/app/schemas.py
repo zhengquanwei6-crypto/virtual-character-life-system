@@ -110,6 +110,38 @@ class LLMConfigTestRequest(BaseModel):
     message: str = "你好"
 
 
+class AdminAIConfigUpdate(BaseModel):
+    enabled: bool = False
+    baseUrl: str = ""
+    model: Optional[str] = None
+    apiKey: Optional[str] = None
+    timeout: int = 60
+    temperature: float = 0.4
+
+
+class AITaskCreate(BaseModel):
+    type: str
+    targetType: Optional[str] = None
+    targetId: Optional[str] = None
+    inputSnapshot: dict[str, Any] = Field(default_factory=dict)
+    applyMode: str = "draft"
+
+
+class AITaskApplyRequest(BaseModel):
+    overwrite: bool = False
+
+
+class ComfyResourceRefreshRequest(BaseModel):
+    force: bool = True
+
+
+class TypedNodeMappingValidateRequest(BaseModel):
+    workflowTemplateId: Optional[str] = None
+    workflowJson: Optional[dict[str, Any]] = None
+    mappings: Optional[dict[str, Any]] = None
+    useCachedResources: bool = True
+
+
 class WorkflowAnalyzeRequest(BaseModel):
     workflowJson: dict[str, Any]
 

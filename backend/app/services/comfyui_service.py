@@ -214,7 +214,7 @@ def save_comfy_image(task: ImageTask, image: dict[str, Any], preset: GenerationP
     return GeneratedAsset(
         image_task_id=task.id,
         file_path=str(file_path),
-        public_url=f"http://127.0.0.1:8000/generated/{filename}",
+        public_url=f"/generated/{filename}",
         width=width or (preset.width if preset else 0),
         height=height or (preset.height if preset else 0),
         file_size=len(data),

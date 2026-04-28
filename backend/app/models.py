@@ -159,3 +159,51 @@ class LLMProviderConfig(TimestampMixin, table=True):
     model: Optional[str] = None
     api_key: Optional[str] = None
     timeout: int = Field(default=60)
+
+
+class AdminAIConfig(TimestampMixin, table=True):
+    id: str = Field(default="default", primary_key=True)
+    enabled: bool = Field(default=False)
+    base_url: str = ""
+    model: Optional[str] = None
+    api_key: Optional[str] = None
+    timeout: int = Field(default=60)
+    temperature: float = Field(default=0.4)
+    purpose: str = Field(default="admin", index=True)
+
+
+class AITask(TimestampMixin, table=True):
+    id: str = Field(default_factory=lambda: new_id("aitask"), primary_key=True)
+    type: str = Field(index=True)
+    status: str = Field(default="queued", index=True)
+    target_type: Optional[str] = Field(default=None, index=True)
+    target_id: Optional[str] = Field(default=None, index=True)
+    input_snapshot: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    output_draft: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    apply_mode: str = Field(default="draft")
+    applied_at: Optional[datetime] = None
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+class CharacterTemplate(TimestampMixin, table=True):
+    id: str = Field(default_factory=lambda: new_id("template"), primary_key=True)
+    name: str
+    category: Optional[str] = Field(default=None, index=True)
+    description: Optional[str] = None
+    profile_draft: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    prompt_draft: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    visual_draft: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    source: str = Field(default="built_in", index=True)
+
+
+class ComfyResourceCache(TimestampMixin, table=True):
+    id: str = Field(default_factory=lambda: new_id("resource"), primary_key=True)
+    base_url: str = Field(index=True)
+    resource_type: str = Field(index=True)
+    items: Any = Field(default_factory=list, sa_column=Column(JSON))
+    fetched_at: Optional[datetime] = None
+    source: str = Field(default="cache")
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None

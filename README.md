@@ -1,14 +1,13 @@
 # Virtual Character Life System
 
-前后端分离的虚拟角色聊天、生图与配置后台。当前版本以 FastAPI 后端、React 用户端/后台、Android WebView APK 为核心。
+前后端分离的虚拟角色聊天、生图与配置后台。当前版本以 FastAPI、SQLite、React/Vite 和 Android WebView 为核心，支持 Mock fallback 与真实 LLM/ComfyUI 接入。
 
 ## 当前能力
 
-- 用户聊天页：真实 LLM 或 Mock LLM 回复，按结构化决策触发异步 ImageTask。
-- 生图链路：真实 ComfyUI 或 Mock 图片，生成结果保存为 GeneratedAsset。
-- 管理后台：密码登录保护，支持角色配置、生图预设、Workflow/NodeMapping 向导、模型连接和测试中心。
-- 前端：Vite + React + TypeScript，响应式适配 Web、PC 浏览器和 Android WebView。
-- 后端：FastAPI + SQLite + SQLModel，统一 `{ success, data, error, requestId }` 返回。
+- 用户聊天页：角色对话、结构化 LLM 决策、异步 ImageTask 轮询、生成图片展示与失败提示。
+- 管理后台：密码登录、角色配置、生图预设、Workflow/NodeMapping 向导、用户聊天 LLM 配置、测试中心。
+- v0.5.0 新增：后台 AI 助手、AI 任务草稿/应用、角色模板、ComfyUI 资源中心、类型化 Workflow 解析与 NodeMapping 校验。
+- 后端统一返回 `{ success, data, error, requestId }`。
 
 ## 本地启动
 
@@ -36,20 +35,14 @@ http://127.0.0.1:5173/admin.html
 http://127.0.0.1:8000/docs
 ```
 
-默认本地管理员密码来自 `ADMIN_PASSWORD`，未配置时为 `admin123456`。生产部署必须修改。
+本地默认管理员密码来自 `ADMIN_PASSWORD`，未配置时为 `admin123456`。生产部署必须修改。
 
-## LLM 与 ComfyUI
+## v0.5.0 管理后台
 
-后台“模型连接”支持 OpenAI-compatible 接口：
-
-```txt
-baseUrl: https://your-llm.example/v1
-model: your-model-id
-apiKey: optional
-timeout: 60
-```
-
-后台 LLM 主要用于角色定义、角色卡生成、工作流分析和聊天决策。ChatGPT Plus/Codex 额度适合开发工作流，不作为后端生产 API 用量来源；生产调用请使用自定义 OpenAI-compatible 接口或官方 OpenAI API Key。
+- “AI 助手”：独立后台 AI 配置，可用于角色生成、角色/视觉提示词优化、生图预设建议和 Workflow 诊断。
+- “资源中心”：读取 ComfyUI `/system_stats`、`/queue`、`/object_info`、`/models/*`、`/embeddings`，失败时显示缓存。
+- “Workflow”：确定性解析节点、连接关系、输入类型、资源依赖，并生成可解释 NodeMapping 草稿。
+- “生图”：checkpoint、sampler、scheduler 优先从资源缓存下拉选择，避免手动输入错误。
 
 ## 部署
 
@@ -70,9 +63,9 @@ http://96.30.199.85:8090/admin.html
 每个版本发布前先备份：
 
 ```bash
-bash /opt/virtual-character-life-system/current/deploy/vps/backup.sh v0.4.0-predeploy
+bash /opt/virtual-character-life-system/current/deploy/vps/backup.sh v0.5.0-predeploy
 ```
 
 ## APK
 
-Android WebView 工程位于 [mobile/android](./mobile/android)。推送 tag `v*` 会触发 GitHub Actions 构建 APK artifact。
+Android WebView 工程位于 [mobile/android](./mobile/android)。推送 `v*` tag 会触发 GitHub Actions 构建 APK artifact。

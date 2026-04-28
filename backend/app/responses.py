@@ -31,6 +31,17 @@ PRESERVE_VALUE_KEYS = {
     "mappings",
     "parameter_snapshot",
     "parameterSnapshot",
+    "input_snapshot",
+    "inputSnapshot",
+    "output_draft",
+    "outputDraft",
+    "profile_draft",
+    "profileDraft",
+    "prompt_draft",
+    "promptDraft",
+    "visual_draft",
+    "visualDraft",
+    "items",
 }
 
 

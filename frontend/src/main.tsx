@@ -30,11 +30,16 @@ import {
 import "./styles.css";
 import {
   AdminApi,
+  AdminAIConfig,
+  AITask,
+  API_BASE,
   ApiError,
   CharacterBundle,
+  CharacterTemplate,
   ChatApi,
   ChatMessage,
   clearAdminToken,
+  ComfyResourcesResponse,
   GenerationPreset,
   getAdminToken,
   ImageTask,
@@ -42,11 +47,12 @@ import {
   NodeMapping,
   setAdminToken,
   WorkflowAnalysis,
+  WorkflowTypedAnalysis,
   WorkflowTemplate
 } from "./api";
 
 type Page = "chat" | "admin";
-type AdminTab = "overview" | "character" | "image" | "workflow" | "model" | "test";
+type AdminTab = "overview" | "ai" | "resources" | "character" | "image" | "workflow" | "model" | "test";
 type Toast = { id: number; tone: "success" | "error" | "info"; text: string };
 
 const imagePollInterval = 1800;
@@ -399,10 +405,11 @@ function ImageTaskCard({
   onPreview: (url: string) => void;
 }) {
   if (task.status === "succeeded" && task.generatedAsset?.publicUrl) {
+    const url = assetUrl(task.generatedAsset.publicUrl);
     return (
       <figure className="generated-image">
-        <button type="button" onClick={() => onPreview(task.generatedAsset!.publicUrl)} aria-label="放大预览生成图片">
-          <img src={task.generatedAsset.publicUrl} alt="生成图片" />
+        <button type="button" onClick={() => onPreview(url)} aria-label="放大预览生成图片">
+          <img src={url} alt="生成图片" />
         </button>
         <figcaption>
           <CheckCircle2 size={14} />
@@ -503,10 +510,12 @@ function AdminPage({ openChat }: { openChat: () => void }) {
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "工作台", icon: <MonitorSmartphone size={17} /> },
+    { id: "ai", label: "AI 助手", icon: <Sparkles size={17} /> },
+    { id: "resources", label: "资源中心", icon: <RefreshCw size={17} /> },
     { id: "character", label: "角色", icon: <Bot size={17} /> },
     { id: "image", label: "生图", icon: <ImageIcon size={17} /> },
     { id: "workflow", label: "工作流", icon: <Workflow size={17} /> },
-    { id: "model", label: "模型", icon: <Settings2 size={17} /> },
+    { id: "model", label: "用户模型", icon: <Settings2 size={17} /> },
     { id: "test", label: "测试", icon: <TestTube2 size={17} /> }
   ];
 
@@ -541,6 +550,8 @@ function AdminPage({ openChat }: { openChat: () => void }) {
 
       <section className="admin-workspace">
         {tab === "overview" && <OverviewPanel notify={notify} setTab={setTab} />}
+        {tab === "ai" && <AdminAIPanel notify={notify} />}
+        {tab === "resources" && <ComfyResourcePanel notify={notify} />}
         {tab === "character" && <CharacterPanel notify={notify} />}
         {tab === "image" && <ImageConfigPanel notify={notify} />}
         {tab === "workflow" && <WorkflowPanel notify={notify} />}
@@ -688,6 +699,268 @@ function OverviewPanel({ notify, setTab }: { notify: (text: string, tone?: Toast
         <Step title="2. 角色配置" text="只维护名称、头像、简介、基础提示词和生图预设。" />
         <Step title="3. 链路测试" text="测试聊天与生图，失败时根据中文提示修复。" />
       </div>
+    </Panel>
+  );
+}
+
+function AdminAIPanel({ notify }: { notify: (text: string, tone?: Toast["tone"]) => void }) {
+  const [config, setConfig] = useState<AdminAIConfig | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [characters, setCharacters] = useState<CharacterBundle[]>([]);
+  const [templates, setTemplates] = useState<CharacterTemplate[]>([]);
+  const [targetId, setTargetId] = useState("");
+  const [seedText, setSeedText] = useState("温柔、有陪伴感、能根据聊天生成画面的虚拟角色");
+  const [task, setTask] = useState<AITask | null>(null);
+  const [result, setResult] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    load().catch((err) => notify(errorText(err), "error"));
+  }, []);
+
+  async function load() {
+    const [configData, characterData, templateData] = await Promise.all([
+      AdminApi.getAdminAiConfig(),
+      AdminApi.listCharacters(),
+      AdminApi.listCharacterTemplates().catch(() => [])
+    ]);
+    setConfig(configData);
+    setCharacters(characterData);
+    setTemplates(templateData);
+    setTargetId((current) => current || characterData[0]?.character.id || "");
+  }
+
+  async function saveConfig() {
+    if (!config) return;
+    try {
+      const data = await AdminApi.saveAdminAiConfig({ ...config, apiKey: apiKey || undefined });
+      setConfig(data);
+      setApiKey("");
+      setResult(JSON.stringify(data, null, 2));
+      notify("后台 AI 配置已保存。", "success");
+    } catch (err) {
+      const text = errorText(err);
+      setResult(text);
+      notify(text, "error");
+    }
+  }
+
+  async function testConfig() {
+    try {
+      const data = await AdminApi.testAdminAi("请用一句话说明你能帮助我完成哪些后台配置。");
+      setResult(JSON.stringify(data, null, 2));
+      notify("后台 AI 测试完成。", "success");
+    } catch (err) {
+      const text = errorText(err);
+      setResult(text);
+      notify(text, "error");
+    }
+  }
+
+  async function listModels() {
+    try {
+      const data = await AdminApi.listAdminAiModels();
+      setResult(JSON.stringify(data, null, 2));
+      notify("后台 AI 模型列表已返回。", "success");
+    } catch (err) {
+      const text = errorText(err);
+      setResult(text);
+      notify(text, "error");
+    }
+  }
+
+  async function runTask(type: string) {
+    setBusy(true);
+    try {
+      const selected = characters.find((item) => item.character.id === targetId);
+      const created = await AdminApi.createAiTask({
+        type,
+        targetType: type.includes("character") || type.includes("prompt") ? "character" : undefined,
+        targetId: type.includes("character") || type.includes("prompt") ? targetId : undefined,
+        inputSnapshot: {
+          seedText,
+          character: selected || null,
+          note: "默认生成草稿，管理员确认后再应用。"
+        },
+        applyMode: "draft"
+      });
+      setTask(created);
+      notify("AI 任务已创建，正在生成草稿。", "info");
+      const done = await waitForAiTask(created.id);
+      setTask(done);
+      setResult(JSON.stringify(done.outputDraft || done, null, 2));
+      notify(done.status === "succeeded" ? "AI 草稿已生成。" : "AI 任务失败，请查看原因。", done.status === "succeeded" ? "success" : "error");
+    } catch (err) {
+      const text = errorText(err);
+      setResult(text);
+      notify(text, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyDraft(overwrite: boolean) {
+    if (!task) return;
+    try {
+      const data = await AdminApi.applyAiTask(task.id, overwrite);
+      setResult(JSON.stringify(data, null, 2));
+      notify(overwrite ? "AI 草稿已覆盖应用。" : "AI 草稿已按空字段应用。", "success");
+    } catch (err) {
+      const text = errorText(err);
+      setResult(text);
+      notify(text, "error");
+    }
+  }
+
+  if (!config) {
+    return (
+      <Panel title="AI 助手" kicker="Admin AI">
+        <LoadingState text="正在读取后台 AI 配置" />
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel title="AI 助手" kicker="Admin AI" action={<StatusBadge ok={config.enabled} text={config.enabled ? "真实后台 AI" : "Mock 草稿"} />}>
+      <Alert>
+        后台 AI 独立于用户聊天模型，主要用于角色库、提示词优化、生图预设建议和 Workflow 诊断。未启用时会明确显示 Mock 草稿，不会伪装成真实模型。
+      </Alert>
+      <div className="form-grid two">
+        <label className="toggle-line">
+          <input type="checkbox" checked={config.enabled} onChange={(event) => setConfig({ ...config, enabled: event.target.checked })} />
+          <span>启用后台 AI</span>
+        </label>
+        <label>
+          <span>Temperature</span>
+          <input type="number" step="0.1" value={config.temperature || 0.4} onChange={(event) => setConfig({ ...config, temperature: Number(event.target.value) })} />
+        </label>
+        <label>
+          <span>Base URL</span>
+          <input value={config.baseUrl || ""} placeholder="https://example.com/v1" onChange={(event) => setConfig({ ...config, baseUrl: event.target.value })} />
+        </label>
+        <label>
+          <span>模型 ID</span>
+          <input value={config.model || ""} placeholder="留空时尝试使用模型列表第一个" onChange={(event) => setConfig({ ...config, model: event.target.value })} />
+        </label>
+        <label>
+          <span>API Key</span>
+          <input type="password" value={apiKey} placeholder={config.hasApiKey ? `已配置：${config.maskedApiKey}` : "可留空"} onChange={(event) => setApiKey(event.target.value)} />
+        </label>
+        <label>
+          <span>超时秒数</span>
+          <input type="number" value={config.timeout || 60} onChange={(event) => setConfig({ ...config, timeout: Number(event.target.value) })} />
+        </label>
+      </div>
+      <div className="button-row">
+        <button className="primary" onClick={saveConfig}><Save size={16} />保存后台 AI</button>
+        <button onClick={listModels}><RefreshCw size={16} />拉取模型</button>
+        <button onClick={testConfig}><TestTube2 size={16} />测试连接</button>
+      </div>
+
+      <div className="ai-workbench">
+        <section>
+          <p className="eyebrow">角色库</p>
+          <div className="template-strip">
+            {templates.slice(0, 4).map((item) => (
+              <button key={item.id} onClick={() => setSeedText(`${item.name}：${item.description || ""}`)}>
+                <Sparkles size={15} />
+                {item.name}
+              </button>
+            ))}
+          </div>
+          <label>
+            <span>灵感 / 待优化内容</span>
+            <textarea value={seedText} onChange={(event) => setSeedText(event.target.value)} />
+          </label>
+          <label>
+            <span>应用目标角色</span>
+            <select value={targetId} onChange={(event) => setTargetId(event.target.value)}>
+              {characters.map((item) => (
+                <option key={item.character.id} value={item.character.id}>{item.profile.name}</option>
+              ))}
+            </select>
+          </label>
+        </section>
+        <section className="ai-actions-grid">
+          <button disabled={busy} onClick={() => runTask("character.generate")}><Wand2 size={16} />一键生成角色</button>
+          <button disabled={busy} onClick={() => runTask("character.optimize")}><Bot size={16} />优化角色设定</button>
+          <button disabled={busy} onClick={() => runTask("prompt.optimize")}><MessageCircle size={16} />优化角色提示词</button>
+          <button disabled={busy} onClick={() => runTask("visual-prompt.optimize")}><ImageIcon size={16} />优化视觉提示词</button>
+          <button disabled={busy} onClick={() => runTask("generation-preset.suggest")}><Settings2 size={16} />建议生图预设</button>
+        </section>
+      </div>
+      {task ? (
+        <div className="ai-task-status">
+          <StatusBadge ok={task.status === "succeeded"} text={`任务：${task.type} / ${task.status}`} />
+          <div className="button-row compact">
+            <button onClick={() => applyDraft(false)} disabled={task.status !== "succeeded"}>只填空字段</button>
+            <button className="primary" onClick={() => applyDraft(true)} disabled={task.status !== "succeeded"}>确认覆盖应用</button>
+          </div>
+        </div>
+      ) : null}
+      <ResultBox value={result} />
+    </Panel>
+  );
+}
+
+function ComfyResourcePanel({ notify }: { notify: (text: string, tone?: Toast["tone"]) => void }) {
+  const [diagnostics, setDiagnostics] = useState<ComfyResourcesResponse | null>(null);
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    load().catch((err) => notify(errorText(err), "error"));
+  }, []);
+
+  async function load() {
+    const data = await AdminApi.comfyDiagnostics();
+    setDiagnostics(data);
+  }
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      const data = await AdminApi.refreshComfyResources();
+      setDiagnostics(data);
+      setResult(JSON.stringify(data, null, 2));
+      notify(data.ok ? "ComfyUI 资源已刷新。" : "刷新失败，已显示缓存资源。", data.ok ? "success" : "error");
+    } catch (err) {
+      const text = errorText(err);
+      setResult(text);
+      notify(text, "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const resources = diagnostics?.resources || {};
+  const types = ["checkpoints", "loras", "vae", "samplers", "schedulers", "embeddings", "customNodes", "nodeObjectInfo", "queue", "systemStats"];
+
+  return (
+    <Panel title="ComfyUI 资源中心" kicker="Resources" action={<button onClick={refresh} disabled={loading}>{loading ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}刷新资源</button>}>
+      <div className="summary-grid">
+        <SummaryCard title="连接状态" value={diagnostics?.ok ? "可用" : "异常"} ok={Boolean(diagnostics?.ok)} detail={diagnostics?.baseUrl || "未配置 Base URL"} />
+        <SummaryCard title="运行模式" value={diagnostics?.mode || "未知"} ok={diagnostics?.mode !== "cache"} detail={diagnostics?.nextStep || diagnostics?.message || "实时读取失败时会使用缓存"} />
+        <SummaryCard title="资源缓存" value={`${types.filter((type) => itemCount(resources[type]) > 0).length} 类`} ok detail="失败时保留上次成功缓存" />
+      </div>
+      {diagnostics?.errorMessage ? <Alert>{diagnostics.errorMessage}</Alert> : null}
+      <div className="resource-grid">
+        {types.map((type) => {
+          const resource = resources[type];
+          return (
+            <div className="resource-card" key={type}>
+              <strong>{type}</strong>
+              <span>{itemCount(resource)} 项</span>
+              <small>{resource?.source || "empty"} {resource?.fetchedAt ? `· ${new Date(resource.fetchedAt).toLocaleString()}` : ""}</small>
+              {resource?.errorMessage ? <em>{resource.errorMessage}</em> : null}
+            </div>
+          );
+        })}
+      </div>
+      <details className="advanced">
+        <summary>原始资源与诊断结果</summary>
+        <ResultBox value={result || JSON.stringify(diagnostics, null, 2)} />
+      </details>
     </Panel>
   );
 }
@@ -870,6 +1143,7 @@ function CharacterPanel({ notify }: { notify: (text: string, tone?: Toast["tone"
 function ImageConfigPanel({ notify }: { notify: (text: string, tone?: Toast["tone"]) => void }) {
   const [presets, setPresets] = useState<GenerationPreset[]>([]);
   const [preset, setPreset] = useState<GenerationPreset | null>(null);
+  const [resources, setResources] = useState<ComfyResourcesResponse["resources"]>({});
   const [result, setResult] = useState("");
 
   useEffect(() => {
@@ -877,8 +1151,12 @@ function ImageConfigPanel({ notify }: { notify: (text: string, tone?: Toast["ton
   }, []);
 
   async function load() {
-    const data = await AdminApi.listGenerationPresets();
+    const [data, resourceData] = await Promise.all([
+      AdminApi.listGenerationPresets(),
+      AdminApi.listComfyResources().catch(() => ({ resources: {} as ComfyResourcesResponse["resources"] }))
+    ]);
     setPresets(data);
+    setResources(resourceData.resources || {});
     setPreset((current) => data.find((item) => item.id === current?.id) || data[0] || null);
   }
 
@@ -946,7 +1224,12 @@ function ImageConfigPanel({ notify }: { notify: (text: string, tone?: Toast["ton
         </label>
         <label>
           <span>Checkpoint</span>
-          <input value={preset.checkpoint || ""} onChange={(event) => update("checkpoint", event.target.value)} />
+          <ResourceSelect
+            value={preset.checkpoint || ""}
+            options={resourceOptions(resources, "checkpoints")}
+            fallbackLabel="手动输入 Checkpoint"
+            onChange={(value) => update("checkpoint", value)}
+          />
         </label>
         <label>
           <span>宽度</span>
@@ -974,11 +1257,11 @@ function ImageConfigPanel({ notify }: { notify: (text: string, tone?: Toast["ton
         <div className="form-grid two">
           <label>
             <span>Sampler</span>
-            <input value={preset.sampler || ""} onChange={(event) => update("sampler", event.target.value)} />
+            <ResourceSelect value={preset.sampler || ""} options={resourceOptions(resources, "samplers")} fallbackLabel="手动输入 Sampler" onChange={(value) => update("sampler", value)} />
           </label>
           <label>
             <span>Scheduler</span>
-            <input value={preset.scheduler || ""} onChange={(event) => update("scheduler", event.target.value)} />
+            <ResourceSelect value={preset.scheduler || ""} options={resourceOptions(resources, "schedulers")} fallbackLabel="手动输入 Scheduler" onChange={(value) => update("scheduler", value)} />
           </label>
           <label>
             <span>Seed 模式</span>
@@ -1015,7 +1298,7 @@ function WorkflowPanel({ notify }: { notify: (text: string, tone?: Toast["tone"]
   const [mappings, setMappings] = useState<NodeMapping[]>([]);
   const [workflow, setWorkflow] = useState<WorkflowTemplate | null>(null);
   const [mapping, setMapping] = useState<NodeMapping | null>(null);
-  const [analysis, setAnalysis] = useState<WorkflowAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<WorkflowTypedAnalysis | null>(null);
   const [result, setResult] = useState("");
 
   useEffect(() => {
@@ -1033,11 +1316,12 @@ function WorkflowPanel({ notify }: { notify: (text: string, tone?: Toast["tone"]
   async function analyze() {
     if (!workflow) return;
     try {
-      const data = await AdminApi.analyzeWorkflow(workflow.workflowJson);
+      const data = await AdminApi.parseWorkflow(workflow.workflowJson);
       setAnalysis(data);
-      setResult(JSON.stringify(data.guessedMapping, null, 2));
-      if (mapping) setMapping({ ...mapping, mappings: data.guessedMapping });
-      notify("Workflow 已分析，猜测映射已填入。", "success");
+      const nextMapping = data.typedMapping || data.guessedMapping || {};
+      setResult(JSON.stringify({ diagnosis: data.diagnosis, nodeMapping: nextMapping }, null, 2));
+      if (mapping) setMapping({ ...mapping, mappings: nextMapping });
+      notify("Workflow 已完成类型化解析，映射草稿已填入。", "success");
     } catch (err) {
       const text = errorText(err);
       setResult(text);
@@ -1075,9 +1359,9 @@ function WorkflowPanel({ notify }: { notify: (text: string, tone?: Toast["tone"]
   async function validate() {
     if (!workflow || !mapping) return;
     try {
-      const data = await AdminApi.validateNodeMapping(mapping.id, { workflowJson: workflow.workflowJson });
+      const data = await AdminApi.validateNodeMappingTyped(mapping.id, { workflowJson: workflow.workflowJson, mappings: mapping.mappings });
       setResult(JSON.stringify(data, null, 2));
-      notify("NodeMapping 校验完成。", "success");
+      notify(data.valid ? "NodeMapping 类型化校验通过。" : "NodeMapping 校验发现问题，请查看修复建议。", data.valid ? "success" : "error");
     } catch (err) {
       const text = errorText(err);
       setResult(text);
@@ -1147,7 +1431,7 @@ function WorkflowPanel({ notify }: { notify: (text: string, tone?: Toast["tone"]
             <div className="node-card" key={node.nodeId}>
               <strong>{node.nodeId}</strong>
               <span>{node.classType}</span>
-              <code>{Object.keys(node.inputs || {}).join(", ") || "无 inputs"}</code>
+              <code>{(node as any).inputNames?.join(", ") || Object.keys((node as any).inputs || {}).join(", ") || "无 inputs"}</code>
             </div>
           ))}
         </div>
@@ -1305,7 +1589,7 @@ function TestPanel({ notify }: { notify: (text: string, tone?: Toast["tone"]) =>
       const finalTask = await waitForTask(task.id);
       setResult(JSON.stringify(finalTask, null, 2));
       if (finalTask.generatedAsset?.publicUrl) {
-        setImageUrl(finalTask.generatedAsset.publicUrl);
+        setImageUrl(assetUrl(finalTask.generatedAsset.publicUrl));
         notify("测试生图完成。", "success");
       } else if (finalTask.status === "failed") {
         notify(friendlyImageError(finalTask), "error");
@@ -1369,6 +1653,35 @@ async function waitForTask(taskId: string) {
   throw new Error("图片任务等待超时");
 }
 
+async function waitForAiTask(taskId: string) {
+  for (let index = 0; index < 90; index += 1) {
+    const task = await AdminApi.getAiTask(taskId);
+    if (["succeeded", "failed"].includes(task.status)) return task;
+    await new Promise((resolve) => window.setTimeout(resolve, 1200));
+  }
+  throw new Error("AI 任务等待超时");
+}
+
+function itemCount(resource?: ComfyResourcesResponse["resources"][string]) {
+  const items = resource?.items;
+  if (Array.isArray(items)) return items.length;
+  if (items && typeof items === "object") return Object.keys(items as Record<string, unknown>).length;
+  return items ? 1 : 0;
+}
+
+function resourceOptions(resources: ComfyResourcesResponse["resources"], type: string) {
+  const items = resources?.[type]?.items;
+  if (Array.isArray(items)) {
+    return items
+      .map((item) => (typeof item === "string" ? item : String((item as any)?.name || (item as any)?.id || "")))
+      .filter(Boolean);
+  }
+  if (items && typeof items === "object") {
+    return Object.keys(items as Record<string, unknown>);
+  }
+  return [];
+}
+
 function Panel({ title, kicker, action, children }: { title: string; kicker: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="panel">
@@ -1397,6 +1710,42 @@ function SummaryCard({ title, value, detail, ok }: { title: string; value: strin
 
 function StatusBadge({ ok, text }: { ok: boolean; text: string }) {
   return <span className={ok ? "status ok" : "status bad"}>{text}</span>;
+}
+
+function ResourceSelect({
+  value,
+  options,
+  fallbackLabel,
+  onChange
+}: {
+  value: string;
+  options: string[];
+  fallbackLabel: string;
+  onChange: (value: string) => void;
+}) {
+  const [manual, setManual] = useState(!options.length || (value && !options.includes(value)));
+  useEffect(() => {
+    setManual(!options.length || (value ? !options.includes(value) : false));
+  }, [options.join("|"), value]);
+  if (manual) {
+    return (
+      <div className="resource-select">
+        <input value={value} placeholder={fallbackLabel} onChange={(event) => onChange(event.target.value)} />
+        {options.length ? <button type="button" onClick={() => setManual(false)}>选择资源</button> : null}
+      </div>
+    );
+  }
+  return (
+    <div className="resource-select">
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">请选择</option>
+        {options.map((item) => (
+          <option key={item} value={item}>{item}</option>
+        ))}
+      </select>
+      <button type="button" onClick={() => setManual(true)}>手动</button>
+    </div>
+  );
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -1510,6 +1859,12 @@ function formatTime(value?: string) {
   } catch {
     return "";
   }
+}
+
+function assetUrl(url: string) {
+  if (!url || url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  if (url.startsWith("/")) return `${API_BASE}${url}`;
+  return url;
 }
 
 function errorText(err: unknown) {

@@ -132,6 +132,69 @@ export type LLMConfig = {
   codexNotice?: string;
 };
 
+export type AdminAIConfig = LLMConfig & {
+  temperature?: number;
+  purpose?: string;
+  notice?: string;
+};
+
+export type AITask = {
+  id: string;
+  type: string;
+  status: "queued" | "running" | "succeeded" | "failed" | string;
+  targetType?: string | null;
+  targetId?: string | null;
+  inputSnapshot?: Record<string, unknown>;
+  outputDraft?: Record<string, unknown> | null;
+  applyMode?: "draft" | "overwrite" | string;
+  appliedAt?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type CharacterTemplate = {
+  id: string;
+  name: string;
+  category?: string | null;
+  description?: string | null;
+  profileDraft: Record<string, unknown>;
+  promptDraft: Record<string, unknown>;
+  visualDraft: Record<string, unknown>;
+  tags?: string[];
+  source?: string;
+};
+
+export type ComfyResource = {
+  resourceType?: string | null;
+  items: unknown;
+  source?: string;
+  fetchedAt?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+};
+
+export type ComfyResourcesResponse = {
+  baseUrl?: string;
+  enabled?: boolean;
+  ok?: boolean;
+  mode?: string;
+  resources: Record<string, ComfyResource>;
+  message?: string;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  nextStep?: string | null;
+};
+
+export type WorkflowTypedAnalysis = WorkflowAnalysis & {
+  edges?: Record<string, unknown>[];
+  dag?: Record<string, unknown>;
+  summary?: Record<string, unknown>;
+  typedMapping?: Record<string, unknown>;
+  diagnosis?: Record<string, unknown>;
+};
+
 export type AdminLoginResult = {
   token: string;
   expiresAt: number;
@@ -244,6 +307,52 @@ export const AdminApi = {
       timeoutMs: 90000,
       adminAuth: true
     }),
+  getAdminAiConfig: () => request<AdminAIConfig>("/api/admin/ai-config", { adminAuth: true }),
+  saveAdminAiConfig: (payload: AdminAIConfig) =>
+    request<AdminAIConfig>("/api/admin/ai-config", { method: "PUT", body: JSON.stringify(payload), adminAuth: true }),
+  listAdminAiModels: () => request<any>("/api/admin/ai-config/models", { timeoutMs: 45000, adminAuth: true }),
+  testAdminAi: (message: string) =>
+    request<any>("/api/admin/ai-config/test", {
+      method: "POST",
+      body: JSON.stringify({ message }),
+      timeoutMs: 90000,
+      adminAuth: true
+    }),
+  createAiTask: (payload: {
+    type: string;
+    targetType?: string | null;
+    targetId?: string | null;
+    inputSnapshot?: Record<string, unknown>;
+    applyMode?: "draft" | "overwrite";
+  }) =>
+    request<AITask>("/api/admin/ai-tasks", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 90000,
+      adminAuth: true
+    }),
+  getAiTask: (taskId: string) =>
+    request<AITask>(`/api/admin/ai-tasks/${encodeURIComponent(taskId)}`, { timeoutMs: 45000, adminAuth: true }),
+  applyAiTask: (taskId: string, overwrite = false) =>
+    request<any>(`/api/admin/ai-tasks/${encodeURIComponent(taskId)}/apply`, {
+      method: "POST",
+      body: JSON.stringify({ overwrite }),
+      adminAuth: true
+    }),
+  listCharacterTemplates: () => request<CharacterTemplate[]>("/api/admin/character-templates", { adminAuth: true }),
+  comfyDiagnostics: () => request<ComfyResourcesResponse>("/api/admin/comfyui/diagnostics", { adminAuth: true }),
+  refreshComfyResources: () =>
+    request<ComfyResourcesResponse>("/api/admin/comfyui/resources/refresh", {
+      method: "POST",
+      body: JSON.stringify({ force: true }),
+      timeoutMs: 90000,
+      adminAuth: true
+    }),
+  listComfyResources: () => request<ComfyResourcesResponse>("/api/admin/comfyui/resources", { adminAuth: true }),
+  getComfyResource: (resourceType: string) =>
+    request<ComfyResource>(`/api/admin/comfyui/resources/${encodeURIComponent(resourceType)}`, { adminAuth: true }),
+  getComfyObjectInfo: () => request<ComfyResource>("/api/admin/comfyui/object-info", { timeoutMs: 60000, adminAuth: true }),
+  getComfyQueue: () => request<ComfyResource>("/api/admin/comfyui/queue", { adminAuth: true }),
   listCharacters: () => request<CharacterBundle[]>("/api/admin/characters", { adminAuth: true }),
   updateCharacter: (id: string, payload: any) =>
     request<CharacterBundle>(`/api/admin/characters/${encodeURIComponent(id)}`, {
@@ -281,6 +390,32 @@ export const AdminApi = {
       body: JSON.stringify({ workflowJson }),
       adminAuth: true
     }),
+  parseWorkflow: (workflowJson: Record<string, unknown>) =>
+    request<WorkflowTypedAnalysis>("/api/admin/workflow-templates/parse", {
+      method: "POST",
+      body: JSON.stringify({ workflowJson }),
+      timeoutMs: 60000,
+      adminAuth: true
+    }),
+  analyzeWorkflowAi: (workflowJson: Record<string, unknown>) =>
+    request<AITask>("/api/admin/workflow-templates/analyze-ai", {
+      method: "POST",
+      body: JSON.stringify({ workflowJson }),
+      timeoutMs: 90000,
+      adminAuth: true
+    }),
+  draftWorkflowMapping: (workflowId: string) =>
+    request<any>(`/api/admin/workflow-templates/${encodeURIComponent(workflowId)}/mapping-draft`, {
+      method: "POST",
+      timeoutMs: 60000,
+      adminAuth: true
+    }),
+  diagnoseWorkflow: (workflowId: string) =>
+    request<any>(`/api/admin/workflow-templates/${encodeURIComponent(workflowId)}/diagnose`, {
+      method: "POST",
+      timeoutMs: 60000,
+      adminAuth: true
+    }),
   listNodeMappings: () => request<NodeMapping[]>("/api/admin/node-mappings", { adminAuth: true }),
   updateNodeMapping: (id: string, payload: any) =>
     request<NodeMapping>(`/api/admin/node-mappings/${encodeURIComponent(id)}`, {
@@ -292,6 +427,13 @@ export const AdminApi = {
     request<any>(`/api/admin/node-mappings/${encodeURIComponent(id)}/validate`, {
       method: "POST",
       body: JSON.stringify(payload),
+      adminAuth: true
+    }),
+  validateNodeMappingTyped: (id: string, payload: any) =>
+    request<any>(`/api/admin/node-mappings/${encodeURIComponent(id)}/validate-typed`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      timeoutMs: 60000,
       adminAuth: true
     }),
   testChat: (characterId: string, message: string) =>

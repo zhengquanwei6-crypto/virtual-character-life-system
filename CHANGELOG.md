@@ -1,9 +1,19 @@
 # Changelog
 
+## 0.5.0 - 2026-04-29
+
+- 新增后台 AI 助手：独立于用户聊天 LLM 的 `AdminAIConfig`，支持模型拉取、连接测试、异步 AI 任务、草稿确认与显式覆盖应用。
+- 新增 `AITask`、`CharacterTemplate`、`ComfyResourceCache` 数据对象，AI 生成、资源缓存和操作痕迹均可持久化。
+- 新增 ComfyUI 资源中心：诊断 `/system_stats`、队列、模型资源、embeddings、`/object_info`，失败时返回上次缓存与中文修复建议。
+- Workflow 解析升级为类型化向导：识别节点、连接输入、DAG、输入类型、数字/枚举/资源字段，并生成带置信度和原因的 NodeMapping 草稿。
+- 新增 typed NodeMapping 校验：检查 nodeId、inputPath、连接输入误覆盖、资源缺失、输出节点、custom node 和 MVP text-to-image 支持状态。
+- 后台前端新增 AI 助手、资源中心入口，生图预设优先使用 ComfyUI 资源下拉选择。
+- 版本、PWA 缓存、VPS 示例配置和 APK 默认版本更新到 `0.5.0`。
+
 ## 0.4.0 - 2026-04-29
 
 - 重做聊天页 UI/UX：移动端取消笨重顶部导航，改为紧凑角色头部、自然开场、快捷提示、固定安全区输入栏和图片预览。
-- 优化消息体验：AI 思考中、图片生成中、失败重查、生成完成提示、消息入场动画与移动端无横向溢出。
+- 优化消息体验：AI 思考中、图片生成中、失败重试、生成完成提示、消息入场动画与移动端无横向溢出。
 - 重做管理员后台为配置工作台：中文导航、常用操作前置，角色、生图、模型、Workflow、测试中心分区更清晰。
 - 将低频复杂项统一收纳到“高级设置”，包括 systemPrompt、安全提示词、LoRA、Workflow JSON、NodeMapping JSON 等。
 - 新增管理员密码登录与 Bearer token 鉴权，公网部署后 `/api/admin/*` 不再裸露。

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends
+from typing import Any
+
+from fastapi import APIRouter, BackgroundTasks, Body, Depends
 from sqlmodel import Session, select
 
 from app.database import get_session
@@ -9,6 +11,10 @@ from app.responses import ApiError
 from app.responses import api_success
 from app.schemas import (
     CharacterUpsert,
+    AdminAIConfigUpdate,
+    AITaskApplyRequest,
+    AITaskCreate,
+    ComfyResourceRefreshRequest,
     GenerateCardRequest,
     GenerationPresetUpsert,
     LLMConfigTestRequest,
@@ -18,8 +24,20 @@ from app.schemas import (
     TestChatRequest,
     TestGenerationPresetRequest,
     TestImageRequest,
+    TypedNodeMappingValidateRequest,
     WorkflowAnalyzeRequest,
     WorkflowTemplateUpsert,
+)
+from app.services.admin_ai_service import (
+    admin_ai_config_dto,
+    admin_ai_models,
+    apply_ai_task,
+    create_ai_task,
+    get_ai_task,
+    list_character_templates,
+    run_ai_task,
+    save_admin_ai_config,
+    test_admin_ai,
 )
 from app.services.admin_service import (
     activate_generation_preset,
@@ -42,6 +60,14 @@ from app.services.character_service import (
     update_character,
 )
 from app.services.comfyui_service import comfyui_health
+from app.services.comfyui_resource_service import (
+    comfy_object_info,
+    comfy_queue,
+    comfyui_diagnostics,
+    get_cached_resource,
+    list_cached_resources,
+    refresh_comfy_resources,
+)
 from app.services.llm_config_service import llm_config_dto, save_llm_config
 from app.services.llm_service import (
     generate_character_card_with_llm,
@@ -49,10 +75,26 @@ from app.services.llm_service import (
     llm_health,
 )
 from app.services.image_task_service import create_image_task
-from app.services.workflow_analysis_service import analyze_workflow
+from app.services.workflow_analysis_service import (
+    analyze_workflow,
+    diagnose_workflow,
+    draft_node_mapping,
+    parse_workflow,
+    validate_typed_node_mapping,
+)
 
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin_auth)])
+
+
+def cached_object_info(session: Session) -> dict[str, Any]:
+    items = get_cached_resource(session, "nodeObjectInfo").get("items") or {}
+    return items if isinstance(items, dict) else {}
+
+
+def cached_resources(session: Session) -> dict[str, Any]:
+    items = list_cached_resources(session).get("resources") or {}
+    return items if isinstance(items, dict) else {}
 
 
 @router.get("/system/llm-health")
@@ -63,6 +105,85 @@ def llm_health_api(session: Session = Depends(get_session)):
 @router.get("/system/comfyui-health")
 def comfyui_health_api():
     return api_success(comfyui_health())
+
+
+@router.get("/ai-config")
+def get_admin_ai_config_api(session: Session = Depends(get_session)):
+    return api_success(admin_ai_config_dto(session))
+
+
+@router.put("/ai-config")
+def update_admin_ai_config_api(payload: AdminAIConfigUpdate, session: Session = Depends(get_session)):
+    return api_success(save_admin_ai_config(session, payload))
+
+
+@router.get("/ai-config/models")
+def list_admin_ai_models_api(session: Session = Depends(get_session)):
+    return api_success(admin_ai_models(session))
+
+
+@router.post("/ai-config/test")
+def test_admin_ai_config_api(payload: LLMConfigTestRequest, session: Session = Depends(get_session)):
+    return api_success(test_admin_ai(session, payload.message))
+
+
+@router.post("/ai-tasks")
+def create_ai_task_api(
+    payload: AITaskCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    task = create_ai_task(session, payload)
+    background_tasks.add_task(run_ai_task, task.id)
+    return api_success(task)
+
+
+@router.get("/ai-tasks/{task_id}")
+def get_ai_task_api(task_id: str, session: Session = Depends(get_session)):
+    return api_success(get_ai_task(session, task_id))
+
+
+@router.post("/ai-tasks/{task_id}/apply")
+def apply_ai_task_api(task_id: str, payload: AITaskApplyRequest, session: Session = Depends(get_session)):
+    return api_success(apply_ai_task(session, task_id, overwrite=payload.overwrite))
+
+
+@router.get("/character-templates")
+def list_character_templates_api(session: Session = Depends(get_session)):
+    return api_success(list_character_templates(session))
+
+
+@router.get("/comfyui/diagnostics")
+def comfyui_diagnostics_api(session: Session = Depends(get_session)):
+    return api_success(comfyui_diagnostics(session))
+
+
+@router.post("/comfyui/resources/refresh")
+def refresh_comfy_resources_api(
+    _: ComfyResourceRefreshRequest | None = None,
+    session: Session = Depends(get_session),
+):
+    return api_success(refresh_comfy_resources(session))
+
+
+@router.get("/comfyui/resources")
+def list_comfy_resources_api(session: Session = Depends(get_session)):
+    return api_success(list_cached_resources(session))
+
+
+@router.get("/comfyui/resources/{resource_type}")
+def get_comfy_resource_api(resource_type: str, session: Session = Depends(get_session)):
+    return api_success(get_cached_resource(session, resource_type))
+
+
+@router.get("/comfyui/object-info")
+def get_comfy_object_info_api(session: Session = Depends(get_session)):
+    return api_success(comfy_object_info(session))
+
+
+@router.get("/comfyui/queue")
+def get_comfy_queue_api(session: Session = Depends(get_session)):
+    return api_success(comfy_queue(session))
 
 
 @router.get("/llm-config")
@@ -220,6 +341,35 @@ def analyze_workflow_template_api(payload: WorkflowAnalyzeRequest):
     return api_success(analyze_workflow(payload.workflowJson))
 
 
+@router.post("/workflow-templates/parse")
+def parse_workflow_template_api(payload: WorkflowAnalyzeRequest, session: Session = Depends(get_session)):
+    parsed = parse_workflow(payload.workflowJson, object_info=cached_object_info(session), resources=cached_resources(session))
+    mapping = draft_node_mapping(parsed)
+    return api_success({**parsed, "guessedMapping": mapping, "typedMapping": mapping, "diagnosis": diagnose_workflow(parsed)})
+
+
+@router.post("/workflow-templates/analyze-ai")
+def analyze_workflow_template_ai_api(
+    payload: WorkflowAnalyzeRequest,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    task = create_ai_task(
+        session,
+        AITaskCreate(
+            type="workflow.analyze",
+            targetType="workflow",
+            inputSnapshot={
+                "workflowJson": payload.workflowJson,
+                "objectInfo": cached_object_info(session),
+                "resources": cached_resources(session),
+            },
+        ),
+    )
+    background_tasks.add_task(run_ai_task, task.id)
+    return api_success(task)
+
+
 @router.post("/workflow-templates")
 def create_workflow_template_api(payload: WorkflowTemplateUpsert, session: Session = Depends(get_session)):
     return api_success(create_workflow_template(session, payload))
@@ -237,6 +387,24 @@ def update_workflow_template_api(
 @router.post("/workflow-templates/{workflow_id}/validate")
 def validate_workflow_template_api(workflow_id: str, session: Session = Depends(get_session)):
     return api_success(validate_workflow_template(session, workflow_id))
+
+
+@router.post("/workflow-templates/{workflow_id}/mapping-draft")
+def workflow_mapping_draft_api(workflow_id: str, session: Session = Depends(get_session)):
+    workflow = session.get(WorkflowTemplate, workflow_id)
+    if not workflow:
+        raise ApiError("WORKFLOW_TEMPLATE_NOT_FOUND", "Workflow template not found", 404)
+    parsed = parse_workflow(workflow.workflow_json, object_info=cached_object_info(session), resources=cached_resources(session))
+    return api_success({"analysis": parsed, "nodeMapping": draft_node_mapping(parsed), "diagnosis": diagnose_workflow(parsed)})
+
+
+@router.post("/workflow-templates/{workflow_id}/diagnose")
+def workflow_diagnose_api(workflow_id: str, session: Session = Depends(get_session)):
+    workflow = session.get(WorkflowTemplate, workflow_id)
+    if not workflow:
+        raise ApiError("WORKFLOW_TEMPLATE_NOT_FOUND", "Workflow template not found", 404)
+    parsed = parse_workflow(workflow.workflow_json, object_info=cached_object_info(session), resources=cached_resources(session))
+    return api_success({"analysis": parsed, "diagnosis": diagnose_workflow(parsed), "nodeMapping": draft_node_mapping(parsed)})
 
 
 @router.get("/node-mappings")
@@ -266,5 +434,33 @@ def validate_node_mapping_api(
             mapping_id,
             workflow_json=payload.workflowJson if payload else None,
             workflow_template_id=payload.workflowTemplateId if payload else None,
+        )
+    )
+
+
+@router.post("/node-mappings/{mapping_id}/validate-typed")
+def validate_typed_node_mapping_api(
+    mapping_id: str,
+    payload: TypedNodeMappingValidateRequest | None = Body(default=None),
+    session: Session = Depends(get_session),
+):
+    mapping = session.get(NodeMapping, mapping_id)
+    if not mapping:
+        raise ApiError("NODE_MAPPING_NOT_FOUND", "Node mapping not found", 404)
+    workflow_json = payload.workflowJson if payload and payload.workflowJson else None
+    if not workflow_json and payload and payload.workflowTemplateId:
+        workflow = session.get(WorkflowTemplate, payload.workflowTemplateId)
+        workflow_json = workflow.workflow_json if workflow else None
+    if not workflow_json:
+        workflow = session.exec(select(WorkflowTemplate).where(WorkflowTemplate.node_mapping_id == mapping_id)).first()
+        workflow_json = workflow.workflow_json if workflow else None
+    if not workflow_json:
+        raise ApiError("WORKFLOW_TEMPLATE_REQUIRED", "workflowJson or bound WorkflowTemplate is required", 400)
+    return api_success(
+        validate_typed_node_mapping(
+            workflow_json,
+            payload.mappings if payload and payload.mappings else mapping.mappings,
+            object_info=cached_object_info(session),
+            resources=cached_resources(session),
         )
     )
