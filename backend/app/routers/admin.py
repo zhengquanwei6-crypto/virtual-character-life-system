@@ -32,6 +32,7 @@ from app.services.admin_service import (
     validate_node_mapping,
     validate_workflow_template,
 )
+from app.services.admin_auth_service import require_admin_auth
 from app.services.character_service import (
     character_bundle,
     create_character,
@@ -51,7 +52,7 @@ from app.services.image_task_service import create_image_task
 from app.services.workflow_analysis_service import analyze_workflow
 
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin_auth)])
 
 
 @router.get("/system/llm-health")

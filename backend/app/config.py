@@ -53,11 +53,14 @@ class Settings:
     comfyui_base_url: str
     comfyui_timeout: int
     image_task_timeout: int
+    admin_password: str
+    admin_token_secret: str
+    admin_token_expire_minutes: int
 
 
 def get_settings() -> Settings:
     return Settings(
-        app_version=get_env("APP_VERSION", "0.3.1"),
+        app_version=get_env("APP_VERSION", "0.4.0"),
         llm_enabled=get_bool_env("LLM_ENABLED", False),
         llm_base_url=get_env("LLM_BASE_URL", "").rstrip("/"),
         llm_model=get_env("LLM_MODEL", ""),
@@ -67,4 +70,7 @@ def get_settings() -> Settings:
         comfyui_base_url=get_env("COMFYUI_BASE_URL", "").rstrip("/"),
         comfyui_timeout=get_int_env("COMFYUI_TIMEOUT", 300),
         image_task_timeout=get_int_env("IMAGE_TASK_TIMEOUT", 600),
+        admin_password=get_env("ADMIN_PASSWORD", "admin123456"),
+        admin_token_secret=get_env("ADMIN_TOKEN_SECRET", "change-me-in-production"),
+        admin_token_expire_minutes=get_int_env("ADMIN_TOKEN_EXPIRE_MINUTES", 1440),
     )

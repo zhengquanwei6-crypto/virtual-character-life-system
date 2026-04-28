@@ -1,4 +1,4 @@
-const CACHE_NAME = "virtual-character-life-v0.3.1";
+const CACHE_NAME = "virtual-character-life-v0.4.0";
 const APP_SHELL = ["/", "/index.html"];
 
 self.addEventListener("install", (event) => {

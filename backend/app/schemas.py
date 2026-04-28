@@ -112,3 +112,7 @@ class LLMConfigTestRequest(BaseModel):
 
 class WorkflowAnalyzeRequest(BaseModel):
     workflowJson: dict[str, Any]
+
+
+class AdminLoginRequest(BaseModel):
+    password: str = Field(min_length=1)

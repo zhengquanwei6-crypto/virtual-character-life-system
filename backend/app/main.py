@@ -10,7 +10,7 @@ from app.config import BASE_DIR, get_settings
 from app.database import create_db_and_tables, engine
 from app.responses import ApiError, api_error_handler, api_error_response
 from app.responses import api_success
-from app.routers import admin, user
+from app.routers import admin, admin_auth, user
 from app.seed import seed_database
 from sqlmodel import Session
 
@@ -58,6 +58,7 @@ async def handle_http_error(_, exc: HTTPException):
 
 
 app.include_router(user.router)
+app.include_router(admin_auth.router)
 app.include_router(admin.router)
 (BASE_DIR / "data" / "generated").mkdir(parents=True, exist_ok=True)
 app.mount("/generated", StaticFiles(directory=str(BASE_DIR / "data" / "generated")), name="generated")

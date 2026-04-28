@@ -1,11 +1,13 @@
 export class ApiError extends Error {
   code?: string;
   details?: unknown;
+  status?: number;
 
-  constructor(message: string, code?: string, details?: unknown) {
+  constructor(message: string, code?: string, details?: unknown, status?: number) {
     super(message);
     this.code = code;
     this.details = details;
+    this.status = status;
   }
 }
 
@@ -68,6 +70,7 @@ export type ChatMessage = {
   imageTaskIds: string[];
   llmDecision?: Record<string, unknown> | null;
   imageTasks?: ImageTask[];
+  createdAt?: string;
 };
 
 export type GenerationPreset = {
@@ -129,30 +132,71 @@ export type LLMConfig = {
   codexNotice?: string;
 };
 
-const localFrontend = ["127.0.0.1", "localhost"].includes(window.location.hostname) && window.location.port !== "8000";
-const API_BASE = (window as any).API_BASE || (localFrontend ? "http://127.0.0.1:8000" : "");
+export type AdminLoginResult = {
+  token: string;
+  expiresAt: number;
+};
 
-async function request<T>(path: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<T> {
-  const { timeoutMs = 30000, ...fetchOptions } = options;
+const localFrontend = ["127.0.0.1", "localhost"].includes(window.location.hostname) && window.location.port !== "8000";
+export const API_BASE = (window as any).API_BASE || (localFrontend ? "http://127.0.0.1:8000" : "");
+const ADMIN_TOKEN_KEY = "vcls_admin_token";
+
+export function getAdminToken() {
+  return window.localStorage.getItem(ADMIN_TOKEN_KEY) || "";
+}
+
+export function setAdminToken(token: string) {
+  window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
+}
+
+export function clearAdminToken() {
+  window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+type RequestOptions = RequestInit & { timeoutMs?: number; adminAuth?: boolean };
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { timeoutMs = 30000, adminAuth = false, ...fetchOptions } = options;
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  const headers: HeadersInit = {
+    "Content-Type": "application/json; charset=utf-8",
+    ...(fetchOptions.headers || {})
+  };
+
+  if (adminAuth) {
+    const token = getAdminToken();
+    if (token) {
+      (headers as Record<string, string>).Authorization = `Bearer ${token}`;
+    }
+  }
+
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       ...fetchOptions,
       signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        ...(fetchOptions.headers || {})
-      }
+      headers
     });
-    const payload = await response.json();
-    if (!response.ok || !payload.success) {
-      throw new ApiError(payload.error?.message || `请求失败：${response.status}`, payload.error?.code, payload.error?.details);
+    const text = await response.text();
+    const payload = text ? JSON.parse(text) : null;
+    if (!response.ok || !payload?.success) {
+      if (response.status === 401 && adminAuth) {
+        clearAdminToken();
+      }
+      throw new ApiError(
+        payload?.error?.message || `请求失败：${response.status}`,
+        payload?.error?.code,
+        payload?.error?.details,
+        response.status
+      );
     }
     return payload.data as T;
   } catch (error) {
     if ((error as Error).name === "AbortError") {
-      throw new ApiError("请求超时，请检查后端服务或外部模型连接。", "REQUEST_TIMEOUT");
+      throw new ApiError("请求超时，请检查后端服务、LLM 或 ComfyUI 连接。", "REQUEST_TIMEOUT");
+    }
+    if (error instanceof SyntaxError) {
+      throw new ApiError("后端返回格式异常，请检查服务日志。", "INVALID_RESPONSE");
     }
     throw error;
   } finally {
@@ -179,58 +223,89 @@ export const ChatApi = {
   getImageTask: (taskId: string) =>
     request<ImageTask>(`/api/user/image-tasks/${encodeURIComponent(taskId)}`, {
       timeoutMs: 45000
-    })
+    }),
+  version: () => request<{ version: string; llmEnabled: boolean; comfyuiEnabled: boolean }>("/api/system/version")
 };
 
 export const AdminApi = {
-  llmHealth: () => request<any>("/api/admin/system/llm-health"),
-  comfyuiHealth: () => request<any>("/api/admin/system/comfyui-health"),
-  getLlmConfig: () => request<LLMConfig>("/api/admin/llm-config"),
+  login: (password: string) =>
+    request<AdminLoginResult>("/api/admin/auth/login", { method: "POST", body: JSON.stringify({ password }) }),
+  me: () => request<{ authenticated: boolean }>("/api/admin/auth/me", { adminAuth: true }),
+  llmHealth: () => request<any>("/api/admin/system/llm-health", { adminAuth: true }),
+  comfyuiHealth: () => request<any>("/api/admin/system/comfyui-health", { adminAuth: true }),
+  getLlmConfig: () => request<LLMConfig>("/api/admin/llm-config", { adminAuth: true }),
   saveLlmConfig: (payload: LLMConfig) =>
-    request<LLMConfig>("/api/admin/llm-config", { method: "PUT", body: JSON.stringify(payload) }),
-  listLlmModels: () => request<any>("/api/admin/llm-config/models", { timeoutMs: 45000 }),
+    request<LLMConfig>("/api/admin/llm-config", { method: "PUT", body: JSON.stringify(payload), adminAuth: true }),
+  listLlmModels: () => request<any>("/api/admin/llm-config/models", { timeoutMs: 45000, adminAuth: true }),
   testLlm: (message: string) =>
-    request<any>("/api/admin/llm-config/test", { method: "POST", body: JSON.stringify({ message }), timeoutMs: 90000 }),
-  listCharacters: () => request<CharacterBundle[]>("/api/admin/characters"),
+    request<any>("/api/admin/llm-config/test", {
+      method: "POST",
+      body: JSON.stringify({ message }),
+      timeoutMs: 90000,
+      adminAuth: true
+    }),
+  listCharacters: () => request<CharacterBundle[]>("/api/admin/characters", { adminAuth: true }),
   updateCharacter: (id: string, payload: any) =>
-    request<CharacterBundle>(`/api/admin/characters/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(payload) }),
+    request<CharacterBundle>(`/api/admin/characters/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+      adminAuth: true
+    }),
   publishCharacter: (id: string) =>
-    request<CharacterBundle>(`/api/admin/characters/${encodeURIComponent(id)}/publish`, { method: "POST" }),
+    request<CharacterBundle>(`/api/admin/characters/${encodeURIComponent(id)}/publish`, { method: "POST", adminAuth: true }),
   generateCard: (seedText: string) =>
-    request<any>("/api/admin/characters/generate-card", { method: "POST", body: JSON.stringify({ seedText }), timeoutMs: 90000 }),
-  listGenerationPresets: () => request<GenerationPreset[]>("/api/admin/generation-presets"),
+    request<any>("/api/admin/characters/generate-card", {
+      method: "POST",
+      body: JSON.stringify({ seedText }),
+      timeoutMs: 90000,
+      adminAuth: true
+    }),
+  listGenerationPresets: () => request<GenerationPreset[]>("/api/admin/generation-presets", { adminAuth: true }),
   updateGenerationPreset: (id: string, payload: any) =>
     request<GenerationPreset>(`/api/admin/generation-presets/${encodeURIComponent(id)}`, {
       method: "PUT",
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      adminAuth: true
     }),
-  listWorkflowTemplates: () => request<WorkflowTemplate[]>("/api/admin/workflow-templates"),
+  listWorkflowTemplates: () => request<WorkflowTemplate[]>("/api/admin/workflow-templates", { adminAuth: true }),
   updateWorkflowTemplate: (id: string, payload: any) =>
     request<WorkflowTemplate>(`/api/admin/workflow-templates/${encodeURIComponent(id)}`, {
       method: "PUT",
       body: JSON.stringify(payload),
-      timeoutMs: 60000
+      timeoutMs: 60000,
+      adminAuth: true
     }),
   analyzeWorkflow: (workflowJson: Record<string, unknown>) =>
     request<WorkflowAnalysis>("/api/admin/workflow-templates/analyze", {
       method: "POST",
-      body: JSON.stringify({ workflowJson })
+      body: JSON.stringify({ workflowJson }),
+      adminAuth: true
     }),
-  listNodeMappings: () => request<NodeMapping[]>("/api/admin/node-mappings"),
+  listNodeMappings: () => request<NodeMapping[]>("/api/admin/node-mappings", { adminAuth: true }),
   updateNodeMapping: (id: string, payload: any) =>
-    request<NodeMapping>(`/api/admin/node-mappings/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(payload) }),
+    request<NodeMapping>(`/api/admin/node-mappings/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+      adminAuth: true
+    }),
   validateNodeMapping: (id: string, payload: any) =>
-    request<any>(`/api/admin/node-mappings/${encodeURIComponent(id)}/validate`, { method: "POST", body: JSON.stringify(payload) }),
+    request<any>(`/api/admin/node-mappings/${encodeURIComponent(id)}/validate`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      adminAuth: true
+    }),
   testChat: (characterId: string, message: string) =>
     request<any>(`/api/admin/characters/${encodeURIComponent(characterId)}/test-chat`, {
       method: "POST",
       body: JSON.stringify({ message }),
-      timeoutMs: 90000
+      timeoutMs: 90000,
+      adminAuth: true
     }),
   testImage: (characterId: string, imagePrompt: string) =>
     request<ImageTask>(`/api/admin/characters/${encodeURIComponent(characterId)}/test-image`, {
       method: "POST",
       body: JSON.stringify({ imagePrompt }),
-      timeoutMs: 45000
+      timeoutMs: 45000,
+      adminAuth: true
     })
 };
